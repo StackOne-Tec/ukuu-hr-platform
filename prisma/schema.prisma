@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  color       String       @default("#10b981")
+  budget      Float        @default(0)
+  location    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  employees   Employee[]
+  jobs        JobOpening[]
+}
+
+model Employee {
+  id               String        @id @default(cuid())
+  employeeCode     String        @unique
+  firstName        String
+  lastName         String
+  email            String        @unique
+  phone            String?
+  position         String
+  departmentId     String?
+  department       Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employmentType   String        @default("Full-time")
+  status           String        @default("Active")
+  hireDate         DateTime
+  salary           Float         @default(0)
+  rating           Float         @default(3.5)
+  managerId        String?
+  manager          Employee?     @relation("ManagerTeam", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          Employee[]    @relation("ManagerTeam")
+  address          String?
+  emergencyContact String?
+  leaveRequests    LeaveRequest[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model LeaveRequest {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       String    @default("Annual")
+  startDate  DateTime
+  endDate    DateTime
+  status     String    @default("Pending")
+  reason     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model JobOpening {
+  id          String     @id @default(cuid())
+  title       String
+  departmentId String?
+  department  Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  location    String
+  type        String     @default("Full-time")
+  status      String     @default("Open")
+  salaryMin   Float?
+  salaryMax   Float?
+  description String?
+  postedAt    DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  candidates  Candidate[]
+}
+
+model Candidate {
+  id        String      @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  jobId     String?
+  job       JobOpening? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  stage     String      @default("Applied")
+  rating    Float       @default(0)
+  source    String?
+  notes     String?
+  appliedAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String   @default("General")
+  createdAt DateTime @default(now())
+}
