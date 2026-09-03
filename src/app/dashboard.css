@@ -1,10 +1,10 @@
 /* ============================================================
    UKUU HR — Workspace Dashboard (db-* scope)
-   Rebuilt from product screenshot: 2913x1751 @ DPR1
+   Rebuilt from product screenshot: 2906x1804 @ DPR1
    ============================================================ */
 
 .db-root {
-  --db-sidebar-w: 275px;
+  --db-sidebar-w: 270px;
   --db-gap: 20px;
   --db-radius: 14px;
   --db-border: #ebe2f5;
@@ -55,31 +55,47 @@
 .db-side-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 18px 6px;
+  gap: 13px;
+  padding: 16px 18px 4px;
   flex: 0 0 auto;
 }
 .db-logo-badge {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  gap: 2px;
+  width: 30px;
+  height: 38px;
   border-radius: 9px;
-  background: rgba(29, 10, 63, 0.42);
+  background: rgba(29, 10, 63, 0.45);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
   color: #fff;
   flex: 0 0 auto;
 }
-.db-logo-name {
-  font-size: 11px;
+.db-logo-badge svg { display: block; }
+.db-logo-badge .db-logo-word {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.db-logo-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.db-logo-brand {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #fff;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.db-logo-sub {
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -293,6 +309,27 @@
   line-height: 1.35;
 }
 
+.db-signout {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 10px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #d86677;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.db-signout:hover { background: rgba(216, 102, 119, 0.16); }
+.db-signout:active { transform: translateY(1px); }
+.db-signout:focus-visible { outline: 2px solid rgba(216, 102, 119, 0.6); outline-offset: 2px; }
+.db-signout .db-nav-icon { width: 18px; height: 18px; opacity: 0.92; }
+
 /* ============ MAIN ============ */
 .db-main {
   flex: 1 1 auto;
@@ -302,15 +339,124 @@
   background: linear-gradient(180deg, #f8f7fe 0%, #fbfaff 55%, #ffffff 100%);
 }
 
-/* header */
-.db-header {
+/* topbar */
+.db-topbar {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.92);
+  z-index: 30;
+  height: 55px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  padding: 0 14px 0 33px;
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(8px);
+  border-bottom: 1px solid #ede6f6;
+}
+.db-topbar-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid #ede6f6;
+  background: #fff;
+  color: #664ea2;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.db-topbar-menu:hover { border-color: #d9cdea; background: #faf8fe; }
+.db-topbar-menu:focus-visible { outline: 2px solid var(--db-purple); outline-offset: 2px; }
+
+.db-topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  flex: 0 1 480px;
+  min-width: 0;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid #ebe3f5;
+  background: #fff;
+  color: #9a94b5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.db-topbar-search:focus-within {
+  border-color: #c9b8ec;
+  box-shadow: 0 0 0 3px rgba(109, 49, 178, 0.08);
+}
+.db-topbar-search svg { flex: 0 0 auto; }
+.db-topbar-search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--db-ink);
+  width: 100%;
+  min-width: 0;
+}
+.db-topbar-search input::placeholder { color: #9a94b5; }
+
+.db-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.db-topbar-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #563c99;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.15s ease;
+}
+.db-topbar-icon:hover { background: #f4f0fb; }
+.db-topbar-icon:focus-visible { outline: 2px solid var(--db-purple); outline-offset: 2px; }
+.db-topbar-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d86677;
+  box-shadow: 0 0 0 2px #fff;
+  pointer-events: none;
+}
+.db-topbar-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(160deg, #672da6 0%, #5f299e 60%, #582596 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.db-cloud-check { transition: stroke 0.2s ease; }
+
+/* header */
+.db-header {
   border-bottom: 1px solid var(--db-border);
-  padding: 18px 34px 20px;
+  padding: 26px 34px 22px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -338,8 +484,8 @@
 }
 .db-header h1 {
   margin: 0;
-  font-size: 34px;
-  line-height: 1.08;
+  font-size: 28px;
+  line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--db-ink);
@@ -361,9 +507,9 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  height: 44px;
-  padding: 0 20px;
-  border-radius: 12px;
+  height: 45px;
+  padding: 0 22px;
+  border-radius: 999px;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -733,15 +879,17 @@
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1560px) {
-  .db-header h1 { font-size: 30px; }
+  .db-header h1 { font-size: 26px; }
   .db-kpi-value { font-size: 27px; }
   .db-stat-value { font-size: 29px; }
+  .db-topbar-search { flex-basis: 380px; }
 }
 
 @media (max-width: 1380px) {
   :root .db-root { --db-sidebar-w: 240px; }
   .db-content { padding: 26px 26px 48px; }
-  .db-header { padding: 16px 26px 18px; }
+  .db-header { padding: 22px 26px 18px; }
+  .db-topbar { padding-left: 26px; }
 }
 
 @media (max-width: 1180px) {
@@ -751,7 +899,7 @@
 
 @media (max-width: 1024px) {
   :root .db-root { --db-sidebar-w: 78px; }
-  .db-logo-name,
+  .db-logo-text,
   .db-nav-item .db-nav-label,
   .db-nav-item .db-nav-chevron,
   .db-nav-sub,
@@ -761,6 +909,9 @@
   .db-nav-section span,
   .db-side-mid .db-nav-item .db-nav-label { display: none; }
   .db-side-logo { justify-content: center; padding-left: 0; padding-right: 0; }
+  .db-logo-badge { width: 34px; height: 44px; }
+  .db-signout { justify-content: center; padding: 0; }
+  .db-signout .db-nav-icon { margin: 0; }
   .db-nav-item { justify-content: center; padding: 0; }
   .db-nav-section, .db-super-label { justify-content: center; padding-left: 0; padding-right: 0; }
   .db-side-mid .db-nav-item { justify-content: center; }
@@ -773,6 +924,17 @@
 
 @media (max-width: 760px) {
   .db-root { flex-direction: column; }
+  .db-topbar {
+    gap: 12px;
+    padding: 0 12px 0 16px;
+    height: 62px;
+    flex-wrap: wrap;
+  }
+  .db-topbar-search { order: 5; flex-basis: 100%; height: 38px; }
+  .db-topbar-right { gap: 4px; }
+  .db-topbar-icon { width: 36px; height: 36px; }
+  .db-topbar-avatar { width: 36px; height: 36px; border-radius: 10px; }
+  .db-topbar-menu { width: 40px; height: 40px; }
   .db-sidebar {
     position: static;
     height: auto;
@@ -796,8 +958,8 @@
     gap: 10px;
   }
   .db-content { padding: 20px 16px 40px; }
-  .db-header { padding: 14px 16px 16px; }
-  .db-header h1 { font-size: 24px; }
+  .db-header { padding: 18px 16px 16px; }
+  .db-header h1 { font-size: 22px; }
   .db-header-sub { font-size: 13px; }
   .db-kpis { grid-template-columns: minmax(0, 1fr); }
   .db-hours-body { grid-template-columns: minmax(0, 1fr); gap: 18px; }
@@ -864,4 +1026,30 @@ nextjs-portal { display: none !important; }
 .db-root.db-dark .db-dev-box--err .db-dev-value { color: #e2bb62; }
 .db-root.db-dark .db-sidebar {
   background: linear-gradient(180deg, #6a30ab 0%, #622ba0 34%, #582596 55%, #4d1f85 78%, #471c7d 100%);
+}
+
+/* dark theme — topbar */
+.db-root.db-dark .db-topbar {
+  background: rgba(18, 14, 36, 0.92);
+  border-bottom-color: #2c2247;
+}
+.db-root.db-dark .db-topbar-menu {
+  background: #1b1533;
+  border-color: #2c2247;
+  color: #b79ae8;
+}
+.db-root.db-dark .db-topbar-menu:hover { background: #221a3f; border-color: #3a2d63; }
+.db-root.db-dark .db-topbar-search {
+  background: #1b1533;
+  border-color: #2c2247;
+}
+.db-root.db-dark .db-topbar-search input { color: #ece8f8; }
+.db-root.db-dark .db-topbar-search input::placeholder { color: #8d84b3; }
+.db-root.db-dark .db-topbar-search svg { color: #8d84b3; }
+.db-root.db-dark .db-topbar-icon { color: #b79ae8; }
+.db-root.db-dark .db-topbar-icon:hover { background: #221a3f; }
+.db-root.db-dark .db-topbar-dot { box-shadow: 0 0 0 2px #171030; }
+.db-root.db-dark .db-cloud-check { stroke: #1b1533; }
+.db-root.db-dark .db-topbar-avatar {
+  background: linear-gradient(160deg, #6a35b5 0%, #582999 100%);
 }

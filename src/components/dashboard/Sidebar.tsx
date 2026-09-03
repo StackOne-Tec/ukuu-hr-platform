@@ -17,6 +17,8 @@ import {
   ShieldUser,
   Sun,
   ChevronUp,
+  RefreshCw,
+  LogOut,
 } from "lucide-react";
 
 type NavLeaf = { key: string; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> };
@@ -62,9 +64,10 @@ interface SidebarProps {
   activeKey?: string;
   themeDark: boolean;
   onToggleTheme: () => void;
+  onSignOut?: () => void;
 }
 
-export default function Sidebar({ activeKey = "dashboard", themeDark, onToggleTheme }: SidebarProps) {
+export default function Sidebar({ activeKey = "dashboard", themeDark, onToggleTheme, onSignOut }: SidebarProps) {
   // groups default-expanded like the screenshot (chevron up)
   const [open, setOpen] = useState<Record<string, boolean>>({ overtime: true, devices: true });
   const toggle = (key: string) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -116,8 +119,14 @@ export default function Sidebar({ activeKey = "dashboard", themeDark, onToggleTh
   return (
     <aside className="db-sidebar" aria-label="Workspace navigation">
       <div className="db-side-logo">
-        <span className="db-logo-badge" aria-hidden="true">UKUU</span>
-        <span className="db-logo-name">HRMS Platform</span>
+        <span className="db-logo-badge" aria-hidden="true">
+          <RefreshCw size={15} strokeWidth={2.2} />
+          <span className="db-logo-word">UKUU</span>
+        </span>
+        <span className="db-logo-text">
+          <span className="db-logo-brand">UKUU HR</span>
+          <span className="db-logo-sub">HRMS Platform</span>
+        </span>
       </div>
 
       <nav className="db-nav">
@@ -162,6 +171,10 @@ export default function Sidebar({ activeKey = "dashboard", themeDark, onToggleTh
             <p className="db-profile-role">Admin</p>
           </div>
         </div>
+        <button type="button" className="db-signout" onClick={onSignOut}>
+          <span className="db-nav-icon"><LogOut size={18} strokeWidth={1.9} /></span>
+          <span className="db-nav-label">Sign Out</span>
+        </button>
       </div>
     </aside>
   );

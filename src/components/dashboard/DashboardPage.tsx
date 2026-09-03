@@ -12,8 +12,21 @@ import {
   UserPlus,
   ChevronsRight,
   Bell,
+  Menu,
+  Search,
+  CircleHelp,
 } from "lucide-react";
 import Sidebar from "./Sidebar";
+
+/* solid cloud with check cutout — mirrors the reference toolbar glyph */
+function CloudSyncIcon({ size = 21 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="currentColor" />
+      <path className="db-cloud-check" d="m9.3 14 2 2 3.7-4.1" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /* ---------------- mock data (mirrors screenshot) ---------------- */
 
@@ -112,6 +125,14 @@ export default function DashboardPage() {
 
   const showToast = (text: string) => setToast({ id: Date.now(), text });
 
+  const signOut = () => {
+    try {
+      localStorage.removeItem("ukuu_session");
+      sessionStorage.removeItem("ukuu_session");
+    } catch { /* ignore */ }
+    window.location.assign("/login");
+  };
+
   const exportReport = () => {
     const header = "Employee,Date,Hours,Rate\n";
     const csv = OVERTIME_ROWS.map((r) => `${r.name},${r.date},${r.hours},"${r.rate}"`).join("\n");
@@ -132,9 +153,33 @@ export default function DashboardPage() {
 
   return (
     <div className={`db-root${themeDark ? " db-dark" : ""}`}>
-      <Sidebar themeDark={themeDark} onToggleTheme={toggleTheme} />
+      <Sidebar themeDark={themeDark} onToggleTheme={toggleTheme} onSignOut={signOut} />
 
       <div className="db-main">
+        {/* topbar */}
+        <div className="db-topbar" role="toolbar" aria-label="Top bar">
+          <button type="button" className="db-topbar-menu" aria-label="Toggle navigation menu" onClick={() => showToast("Menu opens the navigation drawer")}>
+            <Menu size={20} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <label className="db-topbar-search">
+            <Search size={16} strokeWidth={2.1} aria-hidden="true" />
+            <input type="search" placeholder="Search employees, payroll, leave..." aria-label="Search employees, payroll, leave" />
+          </label>
+          <div className="db-topbar-right">
+            <button type="button" className="db-topbar-icon" aria-label="All changes synced" onClick={() => showToast("All changes are synced to the cloud")}>
+              <CloudSyncIcon size={21} />
+            </button>
+            <button type="button" className="db-topbar-icon" aria-label="Notifications (1 unread)" onClick={() => showToast("You have 1 unread notification")}>
+              <Bell size={20} strokeWidth={1.9} fill="currentColor" aria-hidden="true" />
+              <span className="db-topbar-dot" aria-hidden="true" />
+            </button>
+            <button type="button" className="db-topbar-icon" aria-label="Help and support" onClick={() => showToast("Help center is coming soon")}>
+              <CircleHelp size={20} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <span className="db-topbar-avatar" aria-label="Administrator (Admin)">A</span>
+          </div>
+        </div>
+
         {/* header */}
         <header className="db-header">
           <div>
