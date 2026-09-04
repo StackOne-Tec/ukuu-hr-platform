@@ -15,7 +15,7 @@ export default async function AddEmployeePage() {
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">People · New record</div>
           <h1 className="bk-admin-h1">Add Employee</h1>
-          <p className="bk-admin-sub">Personal → Employment → Banking → Tax &amp; Statutory</p>
+          <p className="bk-admin-sub">Personal → Employment → Banking</p>
         </div>
       </div>
       <EmployeeForm departments={res.data.departments} />

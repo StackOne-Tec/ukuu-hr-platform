@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Check, Save } from "lucide-react";
 
@@ -30,7 +30,7 @@ export type EmployeeFormData = {
   emergencyContact: string;
 };
 
-const STEPS = ["Personal", "Employment", "Banking", "Tax & Statutory"];
+const STEPS = ["Personal", "Employment", "Banking"];
 
 const initial: EmployeeFormData = {
   employeeCode: "", firstName: "", lastName: "", email: "", phone: "",
@@ -40,28 +40,12 @@ const initial: EmployeeFormData = {
   gender: "", maritalStatus: "", dateOfBirth: "", address: "", emergencyContact: "",
 };
 
-/* ZRA 2025 PAYE brackets (Zambia) */
-function payrollPreview(gross: number) {
-  const nAPSA = Math.min(gross * 0.05, 9870);
-  const nhima = gross * 0.01;
-  const taxable = gross - nAPSA;
-  let paye = 0;
-  if (taxable > 4800) paye += Math.min(taxable - 4800, 2100) * 0.2;
-  if (taxable > 6900) paye += Math.min(taxable - 6900, 2000) * 0.3;
-  if (taxable > 8900) paye += (taxable - 8900) * 0.375;
-  const net = gross - nAPSA - nhima - paye;
-  return { nAPSA, nhima, paye, net };
-}
-
 export default function EmployeeForm({ departments, initialData }: { departments: { id: string; name: string }[]; initialData?: Partial<EmployeeFormData> }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<EmployeeFormData>({ ...initial, ...initialData });
   const set = (k: keyof EmployeeFormData, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
-
-  const gross = Number(form.basicSalary || form.salary || 0);
-  const preview = useMemo(() => payrollPreview(gross), [gross]);
 
   const save = async () => {
     setSaving(true);
@@ -140,32 +124,6 @@ export default function EmployeeForm({ departments, initialData }: { departments
             <Field label="Bank Name" k="bankName" options={[{ value: "", label: "Select…" }, { value: "ZANACO", label: "ZANACO" }, { value: "Stanbic", label: "Stanbic" }, { value: "FNB", label: "FNB" }, { value: "Atlas Mara", label: "Atlas Mara" }, { value: "Indo-Zambia", label: "Indo-Zambia" }]} />
             <Field label="Account Number" k="bankAccountNumber" />
             <Field label="Bank Branch" k="bankBranch" span />
-          </div>
-        )}
-        {step === 3 && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 18px" }}>
-            <Field label="NRC" k="nrc" />
-            <Field label="TPIN" k="tpin" />
-            <div className="bk-admin-card" style={{ gridColumn: "1 / -1", marginTop: 8 }}>
-              <div className="bk-admin-card-header"><h3>Live Payroll Preview — ZRA 2025</h3></div>
-              <div className="bk-admin-card-content" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                {[
-                  ["Gross", gross, "var(--bk-ink)"],
-                  ["NAPSA (5% capped)", preview.nAPSA, "var(--bk-ink-3)"],
-                  ["NHIMA (1%)", preview.nhima, "var(--bk-ink-3)"],
-                  ["PAYE", preview.paye, "#d89c11"],
-                ].map(([label, value, color]) => (
-                  <div key={label as string} className="bk-admin-stat-box">
-                    <div className="bk-admin-stat-box-label">{label}</div>
-                    <div className="bk-admin-stat-box-value" style={{ color: color as string }}>ZMW {Math.round((value as number) * 100) / 100}</div>
-                  </div>
-                ))}
-                <div className="bk-admin-stat-box dark" style={{ gridColumn: "1 / -1" }}>
-                  <div className="bk-admin-stat-box-label">Net Pay</div>
-                  <div className="bk-admin-stat-box-value" style={{ color: "#fff", fontSize: 26 }}>ZMW {Math.round(preview.net * 100) / 100}</div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>

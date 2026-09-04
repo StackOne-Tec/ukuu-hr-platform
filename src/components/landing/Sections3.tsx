@@ -401,9 +401,9 @@ export function Faq() {
       q: "Can I import my existing employee list?",
       a: (
         <>
-          Yes — CSV and XLSX import are built in. The 4-step onboarding wizard
-          (Personal → Employment → Banking → Tax &amp; Statutory) mirrors the
-          import columns, so you can round-trip data without losing fidelity.
+          Yes — CSV and XLSX import are built in. The onboarding wizard
+          (Personal → Employment → Banking) mirrors the import columns, so you
+          can round-trip data without losing fidelity.
         </>
       ),
     },
