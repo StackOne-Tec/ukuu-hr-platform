@@ -373,8 +373,27 @@ async function main() {
       { organizationId: org.id, userName: "System", action: "DEVICE_SYNC", entityType: "AttendanceDevice", details: "Main Entrance synced 214 events" },
     ],
   });
-  await db.licenseCode.create({
-    data: { organizationId: org.id, code: "UKUU-2026-PRO-DEMO", plan: "Professional", status: "Active", activatedAt: daysAgo(120), expiresAt: daysAgo(-245) },
+  // License expires ~1 year out so the demo subscription stays valid (the
+  // Bridge desktop app checks subscription validity before showing its
+  // dashboard). updateMany first so databases seeded before this change don't
+  // keep a stale expired license row.
+  const licenseExpiry = daysAgo(-364);
+  await db.licenseCode.updateMany({
+    where: { organizationId: org.id },
+    data: { status: "Active", expiresAt: licenseExpiry },
+  });
+  await db.licenseCode.upsert({
+    where: { id: "license-demo" },
+    update: { status: "Active", expiresAt: licenseExpiry },
+    create: {
+      id: "license-demo",
+      organizationId: org.id,
+      code: "UKUU-2026-PRO-DEMO",
+      plan: "Professional",
+      status: "Active",
+      activatedAt: daysAgo(120),
+      expiresAt: licenseExpiry,
+    },
   });
 
   // ── Scoped API key (Settings → API Keys) ──

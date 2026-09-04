@@ -11,6 +11,17 @@ const ENDPOINTS = [
   { method: "GET", path: "/api/v1/payroll", desc: "List payroll runs" },
   { method: "GET", path: "/api/v1/leave", desc: "List leave requests" },
   { method: "GET", path: "/api/v1/devices", desc: "List attendance devices" },
+  // Bridge desktop sync app (cloud sign-in flow)
+  { method: "POST", path: "/api/v1/bridge/login", desc: "Sign in with cloud account — returns a session token + subscription state" },
+  { method: "GET", path: "/api/v1/bridge/account", desc: "Account, subscription validity and device summary (session)" },
+  { method: "GET", path: "/api/v1/bridge/devices", desc: "List already-added devices (session)" },
+  { method: "POST", path: "/api/v1/bridge/devices", desc: "Register a new device (session)" },
+  { method: "PATCH", path: "/api/v1/bridge/devices/{id}", desc: "Update a device + auto-upload config (session)" },
+  { method: "POST", path: "/api/v1/bridge/sync", desc: "Upload retrieved device data — manual or auto (session)" },
+  { method: "GET", path: "/api/v1/bridge/syncs", desc: "Recent sync-run history per device (session)" },
+  { method: "GET", path: "/api/v1/bridge/attendance", desc: "Attendance rows for the dashboard (session)" },
+  { method: "GET", path: "/api/v1/bridge/employees", desc: "Employee roster for device enrollment (session)" },
+  { method: "POST", path: "/api/v1/bridge/logout", desc: "End the Bridge session" },
 ] as const;
 
 export async function GET(req: Request) {
