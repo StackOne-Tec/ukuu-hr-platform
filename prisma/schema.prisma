@@ -26,6 +26,22 @@ model Organization {
   employees   Employee[]
   branches    Branch[]
   departments Department[]
+  apiKeys     ApiKey[]
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String       @default("Scoped API key")
+  prefix         String       @default("ukuu_live_")
+  keyHash        String       @unique
+  lastFour       String
+  scopes         String       @default("employees:rw,attendance:rw,payroll:rw,leave:rw,devices:rw,full:rw")
+  isActive       Boolean      @default(true)
+  lastUsedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  rotatedAt      DateTime?
 }
 
 model UserAccount {

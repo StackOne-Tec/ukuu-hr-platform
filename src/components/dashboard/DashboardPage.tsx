@@ -289,37 +289,6 @@ export default function DashboardPage() {
             </article>
           </section>
 
-          {/* today's clock in/out */}
-          <section className="db-card db-table-card" aria-label="Today's clock in and out">
-            <div className="db-card-head">
-              <div>
-                <h2 className="db-card-title">Today&rsquo;s Clock In/Out</h2>
-                <p className="db-card-sub">03 September 2026 · 0 employee(s) recorded</p>
-              </div>
-              <button type="button" className="db-card-link">
-                View All <ChevronsRight size={15} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            </div>
-            <table className="db-table">
-              <thead className="db-thead">
-                <tr>
-                  <th style={{ width: "30%" }}>Employee</th>
-                  <th className="db-col-status" style={{ width: "20%" }}>Status</th>
-                  <th className="db-col-clockin" style={{ width: "18%" }}>Clock In</th>
-                  <th className="db-col-clockout" style={{ width: "18%" }}>Clock Out</th>
-                  <th className="db-col-hours" style={{ width: "14%" }}>Hours</th>
-                </tr>
-              </thead>
-              <tbody className="db-tbody">
-                <tr>
-                  <td colSpan={5}>
-                    <div className="db-empty">No attendance records for today yet.</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
           {/* overtime pending approval */}
           <section className="db-card db-table-card" aria-label="Overtime pending approval">
             <div className="db-card-head">

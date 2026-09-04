@@ -30,7 +30,7 @@ export type EmployeeFormData = {
   emergencyContact: string;
 };
 
-const STEPS = ["Personal", "Employment", "Banking"];
+const STEPS = ["Personal", "Employment"];
 
 const initial: EmployeeFormData = {
   employeeCode: "", firstName: "", lastName: "", email: "", phone: "",
@@ -117,13 +117,6 @@ export default function EmployeeForm({ departments, initialData }: { departments
             <Field label="Status" k="status" options={[{ value: "Active", label: "Active" }, { value: "Probation", label: "Probation" }, { value: "Inactive", label: "Inactive" }]} />
             <Field label="Hire Date" k="hireDate" type="date" />
             <Field label="Basic Salary (ZMW)" k="basicSalary" type="number" span />
-          </div>
-        )}
-        {step === 2 && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 18px" }}>
-            <Field label="Bank Name" k="bankName" options={[{ value: "", label: "Select…" }, { value: "ZANACO", label: "ZANACO" }, { value: "Stanbic", label: "Stanbic" }, { value: "FNB", label: "FNB" }, { value: "Atlas Mara", label: "Atlas Mara" }, { value: "Indo-Zambia", label: "Indo-Zambia" }]} />
-            <Field label="Account Number" k="bankAccountNumber" />
-            <Field label="Bank Branch" k="bankBranch" span />
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@
    1 demo org, 8 employees, 30 days of attendance, leave, payroll,
    shifts, devices, holidays, documents, policies, messages, audit log. */
 import { PrismaClient } from "@prisma/client";
+import crypto from "node:crypto";
 
 const db = new PrismaClient();
 
@@ -375,6 +376,24 @@ async function main() {
   await db.licenseCode.create({
     data: { organizationId: org.id, code: "UKUU-2026-PRO-DEMO", plan: "Professional", status: "Active", activatedAt: daysAgo(120), expiresAt: daysAgo(-245) },
   });
+
+  // ── Scoped API key (Settings → API Keys) ──
+  // Deterministic demo key so the docs/tests can rely on it. Only the sha256
+  // hash is persisted; the plaintext is printed once for reference.
+  const demoKey = "ukuu_live_" + "a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f7a1b";
+  const existingKey = await db.apiKey.findFirst({ where: { organizationId: org.id } });
+  if (!existingKey) {
+    await db.apiKey.create({
+      data: {
+        organizationId: org.id,
+        name: "Scoped API key",
+        keyHash: crypto.createHash("sha256").update(demoKey, "utf8").digest("hex"),
+        lastFour: demoKey.slice(-4),
+        scopes: "employees:rw,attendance:rw,payroll:rw,leave:rw,devices:rw,full:rw",
+      },
+    });
+    console.log(`  API key created: ${demoKey}`);
+  }
 
   console.log("✅ Seed complete — UkuuHR Demo Ltd ready.");
 }

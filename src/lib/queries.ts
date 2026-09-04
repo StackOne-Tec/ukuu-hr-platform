@@ -581,7 +581,7 @@ export async function getSettings() {
   return safe(async () => {
     const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
     const orgId = org?.id ?? "none";
-    const [branches, users, leaveTypes, notifications, licenses, employees, departments] = await Promise.all([
+    const [branches, users, leaveTypes, notifications, licenses, employees, departments, apiKeys] = await Promise.all([
       db.branch.findMany({ where: { organizationId: orgId } }),
       db.userAccount.findMany({ where: { organizationId: orgId } }),
       db.leaveType.findMany({ where: { organizationId: orgId } }),
@@ -589,6 +589,7 @@ export async function getSettings() {
       db.licenseCode.findFirst({ where: { organizationId: orgId } }),
       db.employee.count({ where: { organizationId: orgId } }),
       db.department.findMany({ where: { organizationId: orgId } }),
+      db.apiKey.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" } }),
     ]);
     return {
       org: org ? { id: org.id, name: org.name, email: org.email ?? "", country: org.country, currency: org.currency, plan: org.plan } : null,
@@ -599,8 +600,19 @@ export async function getSettings() {
       license: licenses ? { code: licenses.code, plan: licenses.plan, status: licenses.status, expiresAt: iso(licenses.expiresAt) } : null,
       employeeCount: employees,
       departments: departments.map((d) => ({ id: d.id, name: d.name })),
+      apiKeys: apiKeys.map((k) => ({
+        id: k.id,
+        name: k.name,
+        masked: `${k.prefix}${new Array(24).fill("•").join("")}`,
+        scopes: k.scopes,
+        scopeLabels: k.scopes.split(",").map((s) => s.trim().split(":")[0]),
+        isActive: k.isActive,
+        lastUsedAt: iso(k.lastUsedAt),
+        createdAt: iso(k.createdAt),
+        rotatedAt: iso(k.rotatedAt),
+      })),
     };
-  }, { org: null, branches: [], users: [], leaveTypes: [], notifications: [], license: null, employeeCount: 0, departments: [] });
+  }, { org: null, branches: [], users: [], leaveTypes: [], notifications: [], license: null, employeeCount: 0, departments: [], apiKeys: [] });
 }
 
 /* ───────────────────────── security / billing / super admin ───────────────────────── */
