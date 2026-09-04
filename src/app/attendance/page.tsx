@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
-import { getAttendance, getClockEvents } from "@/lib/queries";
-import { Clock, Timer, RefreshCw } from "lucide-react";
+import { getAttendance, getClockEvents, getDeviceImports } from "@/lib/queries";
+import { Clock, Timer, RefreshCw, CloudDownload } from "lucide-react";
 
 export const metadata: Metadata = { title: "Attendance · Ukuu HR" };
 
@@ -13,9 +13,10 @@ const PILL: Record<string, string> = {
 };
 
 export default async function AttendancePage() {
-  const [attRes, clockRes] = await Promise.all([getAttendance(), getClockEvents()]);
+  const [attRes, clockRes, impRes] = await Promise.all([getAttendance(), getClockEvents(), getDeviceImports()]);
   const rows = attRes.data;
   const events = clockRes.data;
+  const imports = impRes.data;
 
   const statusCount = (s: string) => rows.filter((r) => r.status === s).length;
   const present = statusCount("Present") + statusCount("Late");
@@ -31,6 +32,7 @@ export default async function AttendancePage() {
         </div>
         <div className="bk-admin-actions">
           <Link href="/attendance/logs" className="bk-btn bk-btn-secondary"><RefreshCw size={16} /> Logs</Link>
+          <Link href="/attendance/import" className="bk-btn bk-btn-secondary"><CloudDownload size={16} /> Import Records</Link>
           <Link href="/clock" className="bk-btn bk-btn-primary"><Timer size={16} /> Clock In / Out</Link>
         </div>
       </div>
@@ -41,7 +43,7 @@ export default async function AttendancePage() {
           { label: "Present", value: present, tint: "green", sub: "checked in today" },
           { label: "Late arrivals", value: statusCount("Late"), tint: "gold", sub: "beyond grace period" },
           { label: "On leave", value: statusCount("OnLeave"), tint: "pink", sub: "approved leave" },
-          { label: "Total hours", value: `${totalHours}h`, tint: "blue", sub: "worked today" },
+          { label: "Total hours", value: `${totalHours}h`, tint: "gold", sub: "worked today" },
         ].map((k) => (
           <div key={k.label} className="bk-admin-kpi-card">
             <div className="bk-admin-kpi-card-top"><div className={`bk-admin-kpi-icon ${k.tint}`}><Clock size={20} strokeWidth={1.9} /></div></div>
@@ -82,6 +84,45 @@ export default async function AttendancePage() {
           ))}
         </div>
       </div>
+
+      {/* imported device records — pulled straight from live terminals */}
+      {imports.length > 0 && (
+        <div className="bk-admin-card" style={{ marginBottom: 24 }}>
+          <div className="bk-admin-card-header">
+            <div>
+              <h3>Device imports</h3>
+              <p>Records pulled straight from live terminals via Import Records</p>
+            </div>
+            <Link href="/attendance/import" className="bk-btn-text"><CloudDownload size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Import more</Link>
+          </div>
+          <table className="bk-admin-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Hours</th>
+                <th>Status</th>
+                <th>Device</th>
+              </tr>
+            </thead>
+            <tbody>
+              {imports.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600 }}>{r.employeeName}</td>
+                  <td className="bk-mono" style={{ fontWeight: 700 }}>{r.date}</td>
+                  <td className="bk-mono" style={{ fontWeight: 700 }}>{r.checkIn}</td>
+                  <td className="bk-mono" style={{ fontWeight: 700 }}>{r.checkOut}</td>
+                  <td style={{ fontWeight: 700 }}>{r.hours}h</td>
+                  <td><span className={`bk-admin-pill ${PILL[r.status] ?? "active"}`}>{r.status}</span></td>
+                  <td className="bk-muted-text">{r.device}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* today's attendance table */}
       <div className="bk-admin-card">

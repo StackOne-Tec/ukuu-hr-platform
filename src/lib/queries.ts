@@ -252,6 +252,30 @@ export async function getClockEvents() {
   }, []);
 }
 
+/* ───────────────────── device imports ───────────────────── */
+
+export async function getDeviceImports() {
+  return safe(async () => {
+    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const rows = await db.attendance.findMany({
+      where: { organizationId: org?.id ?? "none", source: "Device", note: { contains: "Imported from" } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    const employees = await db.employee.findMany({ where: { organizationId: org?.id ?? "none" } });
+    return rows.map((a) => ({
+      id: a.id,
+      employeeName: (employees.find((e) => e.id === a.employeeId)?.firstName ?? "") + " " + (employees.find((e) => e.id === a.employeeId)?.lastName ?? ""),
+      date: a.date.toISOString().slice(0, 10),
+      checkIn: a.checkIn ? a.checkIn.toTimeString().slice(0, 5) : "—",
+      checkOut: a.checkOut ? a.checkOut.toTimeString().slice(0, 5) : "—",
+      hours: Math.round(a.workedHours * 10) / 10,
+      status: a.status,
+      device: (a.note ?? "").replace(/^Imported from\s*/i, ""),
+    }));
+  }, []);
+}
+
 /* ───────────────────────── leave ───────────────────────── */
 
 export async function getLeave() {
@@ -331,8 +355,56 @@ export async function getShifts() {
       db.attendanceTolerance.findFirst({ where: { organizationId: orgId } }),
     ]);
     const employees = await db.employee.findMany({ where: { organizationId: orgId } });
+
+    // Display metadata derived from shift properties (matches the reference shift cards)
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    const meta = (name: string, type: string, start: string, end: string) => {
+      let s = toMin(start);
+      let e = toMin(end);
+      if (e <= s) e += 1440; // overnight rollover
+      const plannedHours = Math.round(((e - s) / 60) * 10) / 10;
+      const breakMinutes = /flex/i.test(name) ? 45 : /weekend/i.test(name) ? 0 : 60;
+      const weekdays = /weekend/i.test(name)
+        ? [6, 7]
+        : /night/i.test(name) || /rotating/i.test(name)
+          ? [1, 2, 3, 4, 5, 6, 7]
+          : [1, 2, 3, 4, 5];
+      return {
+        plannedHours,
+        breakMinutes,
+        weekdays,
+        flexRange: /flex/i.test(name) ? "6.0h - 9.0h" : null,
+        rotation: /rotating/i.test(name) ? "2 slots x 7 days" : null,
+        overnight: type === "Overnight" ? "Crosses midnight" : null,
+      };
+    };
+
+    const enriched = shifts.map((s) => {
+      const m = meta(s.name, s.type, s.startTime, s.endTime);
+      return {
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        color: s.color,
+        description: s.description ?? "",
+        isActive: s.isActive,
+        plannedHours: m.plannedHours,
+        breakMinutes: m.breakMinutes,
+        weekdays: m.weekdays,
+        flexRange: m.flexRange,
+        rotation: m.rotation,
+        overnight: m.overnight,
+        assignedCount: assignments.filter((a) => a.shiftId === s.id).length,
+      };
+    });
+
     return {
-      shifts: shifts.map((s) => ({ id: s.id, name: s.name, type: s.type, startTime: s.startTime, endTime: s.endTime, color: s.color, isActive: s.isActive })),
+      shifts: enriched,
       assignments: assignments.map((a) => ({
         id: a.id,
         employeeName: (employees.find((e) => e.id === a.employeeId)?.firstName ?? "") + " " + (employees.find((e) => e.id === a.employeeId)?.lastName ?? ""),
@@ -346,8 +418,14 @@ export async function getShifts() {
       tolerance: tolerance
         ? { lateMinutes: tolerance.lateMinutes, earlyDepartureMinutes: tolerance.earlyDepartureMinutes, halfDayMinutes: tolerance.halfDayMinutes, absentMinutes: tolerance.absentMinutes, gracePeriodMinutes: tolerance.gracePeriodMinutes }
         : { lateMinutes: 10, earlyDepartureMinutes: 10, halfDayMinutes: 240, absentMinutes: 480, gracePeriodMinutes: 5 },
+      counts: {
+        totalShifts: shifts.length,
+        activeAssignments: assignments.length,
+        shiftTypesUsed: new Set(shifts.map((s) => s.type)).size,
+        employeesScheduled: new Set(assignments.map((a) => a.employeeId)).size,
+      },
     };
-  }, { shifts: [], assignments: [], deptAssignments: [], tolerance: { lateMinutes: 10, earlyDepartureMinutes: 10, halfDayMinutes: 240, absentMinutes: 480, gracePeriodMinutes: 5 } });
+  }, { shifts: [], assignments: [], deptAssignments: [], tolerance: { lateMinutes: 10, earlyDepartureMinutes: 10, halfDayMinutes: 240, absentMinutes: 480, gracePeriodMinutes: 5 }, counts: { totalShifts: 0, activeAssignments: 0, shiftTypesUsed: 0, employeesScheduled: 0 } });
 }
 
 /* ───────────────────────── overtime ───────────────────────── */

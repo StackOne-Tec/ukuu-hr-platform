@@ -38,7 +38,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
 
       <div className="bk-admin-card" style={{ maxWidth: 640 }}>
         <div className="bk-admin-card-header" style={{ justifyContent: "flex-start", gap: 14 }}>
-          <span className="bk-admin-sidebar-brand-logo">U</span>
+          <span className="bk-admin-sidebar-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></span>
           <div>
             <div style={{ fontWeight: 800, fontSize: 16 }}>UKUU HR · UkuuHR Demo Ltd</div>
             <div className="bk-muted-text">Payslip · {run.periodLabel}</div>

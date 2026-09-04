@@ -79,16 +79,20 @@ html[data-theme="dark"] {
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: linear-gradient(135deg, var(--bk-accent), #6A24A8);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 850;
-    font-size: 18px;
-    color: white;
     flex-shrink: 0;
+    overflow: hidden;
     box-shadow: 0 4px 12px rgba(123, 47, 190, 0.3);
+}
+.bk-admin-sidebar-brand-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    box-sizing: border-box;
+    padding: 8px;
 }
 .bk-admin-sidebar-brand-name { font-weight: 850; font-size: 18px; color: #FFFFFF; letter-spacing: 0.02em; white-space: nowrap; }
 .bk-admin-sidebar-brand-tag {

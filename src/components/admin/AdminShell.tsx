@@ -9,7 +9,6 @@ import {
   Clock,
   CalendarCheck,
   ClockPlus,
-  Calendar,
   CalendarDays,
   Fingerprint,
   List,
@@ -26,8 +25,6 @@ import {
   Cloud,
   Bell,
   CircleHelp,
-  Banknote,
-  Timer,
   BarChart3,
 } from "lucide-react";
 import "../../app/admin.css";
@@ -67,11 +64,8 @@ const isGroup = (e: Entry): e is Group => (e as Group).children !== undefined;
 const WORKSPACE: Entry[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { key: "employees", label: "Employees", href: "/employees", icon: Users },
-  { key: "attendance", label: "Attendance", href: "/attendance", icon: Clock },
-  { key: "clock", label: "Clock In/Out", href: "/clock", icon: Timer },
-  { key: "timecards", label: "Time Cards", href: "/timecards", icon: Calendar },
+  { key: "attendance", label: "Attendance Records", href: "/attendance", icon: Clock },
   { key: "leave", label: "Leave", href: "/leave", icon: CalendarCheck },
-  { key: "payroll", label: "Payroll", href: "/payroll", icon: Banknote },
   {
     key: "overtime",
     label: "Overtime",
@@ -131,7 +125,8 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
 
   const toggleGroup = (key: string) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const isActive = (key: string) => activeKey === key || activeKey.startsWith(key + "/");
+  // Dash-suffixed keys (e.g. attendance-import) highlight the parent leaf.
+  const isActive = (key: string) => activeKey === key || activeKey.startsWith(key + "/") || activeKey.startsWith(key + "-");
 
   const renderLeaf = (leaf: Leaf) => (
     <Link key={leaf.key} href={leaf.href} className={`bk-admin-sidebar-item${isActive(leaf.key) ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
@@ -179,7 +174,7 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
     <div className="bk-admin-body">
       <div className={`bk-admin-sidebar${collapsed ? " collapsed" : ""}${mobileOpen ? " mobile-open" : ""}`}>
         <Link href="/dashboard" className="bk-admin-sidebar-brand" onClick={() => setMobileOpen(false)}>
-          <span className="bk-admin-sidebar-brand-logo">U</span>
+          <span className="bk-admin-sidebar-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></span>
           {!collapsed && (
             <span>
               <span className="bk-admin-sidebar-brand-name">UKUU HR</span>

@@ -107,7 +107,7 @@ export function SignupSidebar() {
     <aside className="sg-side" aria-label="Why Ukuu HR">
       <a href="/" className="sg-logo" aria-label="Ukuu HR home">
         <span className="sg-logo-badge">
-          <UkuuLogoMark size={26} />
+          <UkuuLogoMark size={26} white />
         </span>
         <span>
           <span className="sg-logo-name">UKUU HR</span>

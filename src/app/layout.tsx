@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "Ukuu HR — Modern HRMS for Africa",
   description:
     "Ukuu HR — a world-class HR management system for the African market. Employees, attendance, leave, scheduling, and more.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
   keywords: [
     "Ukuu HR",
     "HRMS",

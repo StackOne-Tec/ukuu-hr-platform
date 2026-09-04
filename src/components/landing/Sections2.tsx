@@ -42,7 +42,12 @@ export function Download() {
             </div>
             <h3>Windows</h3>
             <p>Windows 10+ · 64-bit — Self-contained .exe</p>
-            <a className="lp-dl-btn" href="#download">
+            <a
+              className="lp-dl-btn"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.3.0/UkuuHr-Windows-x64.exe"
+              target="_blank"
+              rel="noreferrer"
+            >
               <MIcon name="download" size={17} />
               Download .exe
             </a>
@@ -58,11 +63,21 @@ export function Download() {
             </div>
             <h3>macOS</h3>
             <p>macOS 11+ · Apple Silicon (M1/M2/M3) — Drag-to-install .dmg</p>
-            <a className="lp-dl-btn" href="#download">
+            <a
+              className="lp-dl-btn"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.3.0/UkuuHr-macOS-arm64.dmg"
+              target="_blank"
+              rel="noreferrer"
+            >
               <MIcon name="download" size={17} />
               Download .dmg (Apple Silicon)
             </a>
-            <a className="lp-dl-btn lp-dl-btn--sub" href="#download">
+            <a
+              className="lp-dl-btn lp-dl-btn--sub"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.3.0/UkuuHr-macOS-x64.dmg"
+              target="_blank"
+              rel="noreferrer"
+            >
               <MIcon name="download" size={17} />
               Intel (x64) .dmg
             </a>

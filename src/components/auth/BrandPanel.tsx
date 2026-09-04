@@ -42,7 +42,7 @@ export function BrandLogo() {
   return (
     <a href="/" className="au-logo" aria-label="Ukuu HR home">
       <span className="au-logo-badge">
-        <UkuuLogoMark size={26} />
+        <UkuuLogoMark size={26} white />
       </span>
       <span>
         <span className="au-logo-name">UKUU HR</span>

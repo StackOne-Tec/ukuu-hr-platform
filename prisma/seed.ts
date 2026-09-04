@@ -102,45 +102,23 @@ async function main() {
   }
 
   // ── Shift + tolerance ──
-  const dayShift = await db.shift.upsert({
-    where: { id: "shift-day" },
-    update: {},
-    create: {
-      id: "shift-day",
-      organizationId: org.id,
-      name: "Day Shift",
-      type: "Fixed",
-      startTime: "08:00",
-      endTime: "17:00",
-      color: "#7B2FBE",
-    },
-  });
-  await db.shift.upsert({
-    where: { id: "shift-night" },
-    update: {},
-    create: {
-      id: "shift-night",
-      organizationId: org.id,
-      name: "Night Shift",
-      type: "Overnight",
-      startTime: "20:00",
-      endTime: "04:00",
-      color: "#2563EB",
-    },
-  });
-  await db.shift.upsert({
-    where: { id: "shift-flex" },
-    update: {},
-    create: {
-      id: "shift-flex",
-      organizationId: org.id,
-      name: "Flexible",
-      type: "Flexible",
-      startTime: "07:00",
-      endTime: "15:30",
-      color: "#14a37f",
-    },
-  });
+  const shiftSeeds = [
+    { id: "shift-standard", name: "Standard Shift", type: "Fixed", start: "08:00", end: "17:00", color: "#2563EB", desc: "Standard weekday day shift with a 1-hour lunch break." },
+    { id: "shift-flex", name: "Morning Flex", type: "Flexible", start: "07:00", end: "15:00", color: "#14a37f", desc: "Flexible start between 06:30 and 09:00, core hours 10:00–15:00." },
+    { id: "shift-night", name: "Night Shift", type: "Overnight", start: "22:00", end: "06:00", color: "#d89c11", desc: "Overnight shift crossing midnight. Check-out rolls into the next calendar day." },
+    { id: "shift-rotating", name: "Rotating Day/Night", type: "Rotating", start: "08:00", end: "17:00", color: "#7B2FBE", desc: "Weekly rotation between day (08:00-17:00) and night (22:00-06:00) shifts." },
+    { id: "shift-weekend", name: "Weekend Half-Day", type: "Fixed", start: "08:00", end: "13:00", color: "#14a37f", desc: "Saturday-only half-day shift for operations teams." },
+  ] as const;
+  const shiftIds: Record<string, string> = {};
+  for (const s of shiftSeeds) {
+    await db.shift.upsert({
+      where: { id: s.id },
+      update: {},
+      create: { id: s.id, organizationId: org.id, name: s.name, type: s.type, startTime: s.start, endTime: s.end, color: s.color, description: s.desc },
+    });
+    shiftIds[s.name] = s.id;
+  }
+  const dayShift = await db.shift.findUniqueOrThrow({ where: { id: "shift-standard" } });
   await db.attendanceTolerance.upsert({
     where: { id: "tol-main" },
     update: {},
@@ -154,11 +132,27 @@ async function main() {
       gracePeriodMinutes: 5,
     },
   });
-  for (const id of empIds) {
+  // 8 primary assignments (one per employee) + 5 secondary = 13 active assignments
+  const primary = [
+    [0, "Standard Shift"], [1, "Standard Shift"], [2, "Standard Shift"],
+    [3, "Morning Flex"], [4, "Morning Flex"],
+    [5, "Night Shift"], [6, "Rotating Day/Night"], [7, "Weekend Half-Day"],
+  ] as const;
+  for (const [empIdx, shiftName] of primary) {
     await db.employeeShiftAssignment.upsert({
-      where: { id: `assign-${id}` },
+      where: { id: `assign-${empIds[empIdx]}` },
       update: {},
-      create: { id: `assign-${id}`, organizationId: org.id, employeeId: id, shiftId: dayShift.id, isPrimary: true },
+      create: { id: `assign-${empIds[empIdx]}`, organizationId: org.id, employeeId: empIds[empIdx], shiftId: shiftIds[shiftName], isPrimary: true },
+    });
+  }
+  const secondary = [
+    [1, "Morning Flex"], [3, "Weekend Half-Day"], [5, "Standard Shift"], [6, "Night Shift"], [4, "Standard Shift"],
+  ] as const;
+  for (const [empIdx, shiftName] of secondary) {
+    await db.employeeShiftAssignment.upsert({
+      where: { id: `assign2-${empIds[empIdx]}` },
+      update: {},
+      create: { id: `assign2-${empIds[empIdx]}`, organizationId: org.id, employeeId: empIds[empIdx], shiftId: shiftIds[shiftName], isPrimary: false },
     });
   }
 

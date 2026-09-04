@@ -547,7 +547,7 @@ export function Footer() {
             <div
               style={{ display: "flex", alignItems: "center", gap: 12, color: "#fff" }}
             >
-              <UkuuLogoMark size={30} />
+              <UkuuLogoMark size={30} white />
               <span className="lp-logo-name" style={{ fontSize: 16 }}>UKUU HR</span>
             </div>
             <p>
