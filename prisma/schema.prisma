@@ -7,9 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* ════════════════════════════════════════════════════════════
+   UKUU HR — Multi-tenant HRMS schema (mirrors the C# rebuild)
+   ════════════════════════════════════════════════════════════ */
+
+model Organization {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String?       @unique
+  email       String?
+  country     String        @default("Zambia")
+  currency    String        @default("ZMW")
+  plan        String        @default("Trial")
+  trialEndsAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  users       UserAccount[]
+  employees   Employee[]
+  branches    Branch[]
+  departments Department[]
+}
+
+model UserAccount {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String
+  email          String       @unique
+  passwordHash   String?
+  role           String       @default("Admin")
+  isActive       Boolean      @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Branch {
+  id             String         @id @default(cuid())
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String
+  city           String?
+  address        String?
+  isHeadOffice   Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+}
+
 model Department {
   id          String       @id @default(cuid())
-  name        String       @unique
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name        String
   description String?
   color       String       @default("#10b981")
   budget      Float        @default(0)
@@ -21,57 +69,372 @@ model Department {
 }
 
 model Employee {
-  id               String        @id @default(cuid())
-  employeeCode     String        @unique
+  id               String       @id @default(cuid())
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  employeeCode     String       @unique
   firstName        String
   lastName         String
-  email            String        @unique
+  email            String       @unique
   phone            String?
   position         String
   departmentId     String?
-  department       Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  employmentType   String        @default("Full-time")
-  status           String        @default("Active")
+  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employmentType   String       @default("Full-time")
+  status           String       @default("Active")
   hireDate         DateTime
-  salary           Float         @default(0)
-  rating           Float         @default(3.5)
+  salary           Float        @default(0)
+  rating           Float        @default(3.5)
   managerId        String?
-  manager          Employee?     @relation("ManagerTeam", fields: [managerId], references: [id], onDelete: SetNull)
-  reports          Employee[]    @relation("ManagerTeam")
+  manager          Employee?    @relation("ManagerTeam", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          Employee[]   @relation("ManagerTeam")
   address          String?
   emergencyContact String?
+  // Ukuu HR extension fields
+  dateOfBirth      DateTime?
+  gender           String?
+  maritalStatus    String?
+  nrc              String?
+  tpin             String?
+  nationalId       String?
+  bankName         String?
+  bankAccountNumber String?
+  bankBranch       String?
+  basicSalary      Float        @default(0)
+  probationEndDate DateTime?
+  terminationDate  DateTime?
   leaveRequests    LeaveRequest[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  attendances      Attendance[]
+  overtimeRecords  OvertimeRecord[]
+  documents        EmployeeDocument[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model Attendance {
+  id             String    @id @default(cuid())
+  organizationId String?
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date           DateTime
+  checkIn        DateTime?
+  checkOut       DateTime?
+  workedHours    Float     @default(0)
+  status         String    @default("Present") // Present | Late | Absent | OnLeave | Remote
+  shiftName      String?
+  source         String?   // Device | CSV | API | Manual
+  note           String?
+  reviewed       Boolean   @default(false)
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId, date])
+  @@index([employeeId, date])
+}
+
+model LeaveType {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  daysPerYear    Int      @default(20)
+  color          String   @default("#7B2FBE")
+  createdAt      DateTime @default(now())
 }
 
 model LeaveRequest {
-  id         String    @id @default(cuid())
-  employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  type       String    @default("Annual")
-  startDate  DateTime
-  endDate    DateTime
-  status     String    @default("Pending")
-  reason     String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String     @id @default(cuid())
+  organizationId String?
+  employeeId  String
+  employee    Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String     @default("Annual")
+  startDate   DateTime
+  endDate     DateTime
+  daysUsed    Int        @default(0)
+  status      String     @default("Pending") // Pending | Approved | Rejected
+  reason      String?
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
+model LeaveHoliday {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  date           DateTime
+  country        String   @default("Zambia")
+  createdAt      DateTime @default(now())
+}
+
+model PayrollRun {
+  id             String        @id @default(cuid())
+  organizationId String?
+  periodMonth    Int
+  periodYear     Int
+  status         String        @default("Draft") // Draft | Pending | Approved | Paid
+  totalGross     Float         @default(0)
+  totalNet       Float         @default(0)
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  items          PayrollItem[]
+}
+
+model PayrollItem {
+  id            String    @id @default(cuid())
+  payrollRunId  String
+  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employeeCode  String
+  employeeName  String
+  basicSalary   Float     @default(0)
+  allowances    Float     @default(0)
+  overtimePay   Float     @default(0)
+  bonuses       Float     @default(0)
+  gross         Float     @default(0)
+  nAPSA         Float     @default(0)
+  nhima         Float     @default(0)
+  paye          Float     @default(0)
+  otherDeductions Float   @default(0)
+  net           Float     @default(0)
+  workedHours   Float     @default(0)
+  overtimeHours Float     @default(0)
+}
+
+model Shift {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  type           String   @default("Fixed") // Fixed | Rotating | Flexible | Overnight
+  startTime      String   @default("08:00")
+  endTime        String   @default("17:00")
+  color          String   @default("#7B2FBE")
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  employeeAssignments EmployeeShiftAssignment[]
+  departmentAssignments DepartmentShiftAssignment[]
+}
+
+model EmployeeShiftAssignment {
+  id             String   @id @default(cuid())
+  organizationId String?
+  employeeId     String
+  shiftId        String
+  shift          Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  effectiveFrom  DateTime @default(now())
+  effectiveTo    DateTime?
+  isPrimary      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model DepartmentShiftAssignment {
+  id             String   @id @default(cuid())
+  organizationId String?
+  departmentId   String
+  shiftId        String
+  shift          Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  dayMask        Int      @default(127) // bitmask: 1=Mon … 64=Sun
+  startDate      DateTime @default(now())
+  endDate        DateTime?
+}
+
+model AttendanceTolerance {
+  id                   String   @id @default(cuid())
+  organizationId       String?
+  lateMinutes          Int      @default(10)
+  earlyDepartureMinutes Int     @default(10)
+  halfDayMinutes       Int      @default(240)
+  absentMinutes        Int      @default(480)
+  gracePeriodMinutes   Int      @default(5)
+  updatedAt            DateTime @updatedAt
+}
+
+model OvertimeRecord {
+  id             String    @id @default(cuid())
+  organizationId String?
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date           DateTime
+  hours          Float     @default(0)
+  rateType       String    @default("Standard") // Standard | Weekend | PublicHoliday
+  status         String    @default("Pending") // Pending | Approved | Rejected
+  reason         String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model AttendanceDevice {
+  id                  String   @id @default(cuid())
+  organizationId      String?
+  name                String
+  vendor              String   @default("Hikvision") // Hikvision | ZKTeco | Suprema | Dahua | Anviz | Matrix | eSSL
+  model               String?
+  ipAddress           String?
+  port                Int      @default(80)
+  integrationMode     String   @default("REST") // REST | CSV | SDK | TCP
+  status              String   @default("Online") // Online | Offline | Error
+  isActive            Boolean  @default(true)
+  autoSyncEnabled     Boolean  @default(true)
+  syncIntervalMinutes Int      @default(30)
+  apiKey              String?
+  lastSyncAt          DateTime?
+  lastError           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model UnifiedClockEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  employeeCode   String
+  deviceId       String?
+  eventType      String   @default("check-in")
+  eventTime      DateTime
+  raw            String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, eventTime])
+}
+
+model HikvisionDevice {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  ipAddress      String
+  username       String?
+  passwordEnc    String?
+  isActive       Boolean  @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model HikvisionClockEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  deviceId       String?
+  employeeCode   String
+  eventType      String
+  eventTime      DateTime
+  raw            String?
+  createdAt      DateTime @default(now())
+}
+
+model EmployeeDocument {
+  id             String   @id @default(cuid())
+  organizationId String?
+  employeeId     String?
+  employee       Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  category       String   @default("Contract") // Contract | Payslip | ID | Compliance | Policy
+  title          String
+  fileName       String?
+  fileType       String?
+  fileSize       Int      @default(0)
+  uploadedAt     DateTime @default(now())
+}
+
+model HrPolicy {
+  id             String   @id @default(cuid())
+  organizationId String?
+  category       String   @default("General")
+  title          String
+  content        String
+  updatedAt      DateTime @updatedAt
+}
+
+model HrConversation {
+  id             String       @id @default(cuid())
+  organizationId String?
+  title          String?
+  participant    String
+  createdAt      DateTime     @default(now())
+  messages       HrMessage[]
+}
+
+model HrMessage {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   HrConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderName     String
+  content        String
+  isSent         Boolean       @default(true)
+  sentAt         DateTime      @default(now())
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  userName       String
+  action         String
+  entityType     String?
+  entityId       String?
+  details        String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}
+
+model LicenseCode {
+  id             String    @id @default(cuid())
+  organizationId String?
+  code           String    @unique
+  plan           String    @default("Professional")
+  status         String    @default("Active") // Active | Expired | Revoked
+  activatedAt    DateTime?
+  expiresAt      DateTime?
+  issuedAt       DateTime  @default(now())
+}
+
+model ExpenseRequest {
+  id             String   @id @default(cuid())
+  organizationId String?
+  employeeId     String
+  category       String   @default("Travel")
+  amount         Float    @default(0)
+  currency       String   @default("ZMW")
+  status         String   @default("Pending")
+  description    String?
+  submittedAt    DateTime @default(now())
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String?
+  title          String
+  message        String
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model PendingRegistration {
+  id        String   @id @default(cuid())
+  email     String
+  token     String
+  expiresAt DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+/* ════════════════════════════════════════════════════════════
+   Existing recruiting models (kept)
+   ════════════════════════════════════════════════════════════ */
+
 model JobOpening {
-  id          String     @id @default(cuid())
-  title       String
+  id           String      @id @default(cuid())
+  title        String
   departmentId String?
-  department  Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  location    String
-  type        String     @default("Full-time")
-  status      String     @default("Open")
-  salaryMin   Float?
-  salaryMax   Float?
-  description String?
-  postedAt    DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  candidates  Candidate[]
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  location     String
+  type         String      @default("Full-time")
+  status       String      @default("Open")
+  salaryMin    Float?
+  salaryMax    Float?
+  description  String?
+  postedAt     DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  candidates   Candidate[]
 }
 
 model Candidate {
