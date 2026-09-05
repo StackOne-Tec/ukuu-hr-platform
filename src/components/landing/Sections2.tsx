@@ -2,6 +2,7 @@
 
 import { MIcon } from "./icons"
 import { Reveal } from "./Reveal"
+import { UkuuLogoMark } from "./Header"
 
 export function Download() {
   return (
@@ -121,19 +122,66 @@ export function Download() {
         </div>
 
         <Reveal delay={100} className="lp-preview-banner">
-          <div className="lp-pwa-icon">
-            <MIcon name="login" size={26} />
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              flex: "0 0 auto",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              boxShadow: "0 12px 28px -10px rgba(109,40,217,0.7)",
+            }}
+          >
+            <UkuuLogoMark size={30} white />
           </div>
           <div className="lp-pwa-text">
-            <h4>Curious about the desktop app?</h4>
+            <h4>Meet the Ukuu HR Bridge app</h4>
             <p>
-              Preview the Bridge Gateway sign-in screen in your browser — the
-              same authentication flow the installed desktop app uses.
+              The companion desktop app for your attendance devices. Sign in
+              with the same cloud account, register as many devices as you need,
+              then sync or auto-upload punch data straight into your dashboard.
             </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginTop: 12,
+              }}
+            >
+              {[
+                "No device limits",
+                "Auto-upload scheduling",
+                "Same cloud sign-in",
+              ].map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 13px",
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "rgba(243,240,255,0.92)",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ color: "#2dd4a7", fontSize: 12 }}>●</span>
+                  {t}
+                </span>
+              ))}
+            </div>
           </div>
           <a className="lp-preview-link" href="/bridge/login">
             <MIcon name="login" size={16} />
-            Open Bridge Login
+            Open the Bridge app
           </a>
         </Reveal>
 
