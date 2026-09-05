@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
-import { getDashboardData } from "@/lib/queries";
+import PlatformAccountDashboard from "@/components/platform/PlatformAccountDashboard";
+import { getDashboardData, getPlatformAccountData } from "@/lib/queries";
+import { PLATFORM } from "@/lib/platform";
 import { Users, CircleCheck, CalendarDays, Timer, Download, UserPlus, TrendingUp, TrendingDown } from "lucide-react";
 import "../admin.css";
 
@@ -15,6 +17,17 @@ export const metadata: Metadata = {
 const RATE_PILL: Record<string, string> = { Standard: "pending", Weekend: "info", PublicHoliday: "gold" };
 
 export default async function DashboardPage() {
+  /* the admin portal home is the platform account dashboard (users, coupons,
+     organizations); the standard deployment keeps the HR workspace overview */
+  if (PLATFORM === "admin") {
+    const acct = await getPlatformAccountData();
+    return (
+      <AdminShell activeKey="dashboard">
+        <PlatformAccountDashboard data={acct.data} />
+      </AdminShell>
+    );
+  }
+
   const res = await getDashboardData();
   const d = res.data;
 

@@ -658,3 +658,51 @@ export async function getSuperAdminData() {
     };
   }, { orgs: [], userCount: 0, deviceCount: 0, payrollRunCount: 0 });
 }
+
+/* ───────────────────────── platform account dashboard (admin portal) ───────────────────────── */
+
+export async function getPlatformAccountData() {
+  return safe(async () => {
+    const [orgs, users, coupons, devices] = await Promise.all([
+      db.organization.findMany({
+        include: { _count: { select: { employees: true, users: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.userAccount.findMany({
+        include: { organization: { select: { name: true, slug: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.coupon.findMany({ orderBy: { createdAt: "desc" } }),
+      db.attendanceDevice.count(),
+    ]);
+    const orgById = new Map(orgs.map((o) => [o.id, o]));
+    return {
+      orgs: orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug ?? "", plan: o.plan, employees: o._count.employees, users: o._count.users })),
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive,
+        lastLoginAt: iso(u.lastLoginAt),
+        createdAt: iso(u.createdAt),
+        orgName: u.organization?.name ?? (orgById.get(u.organizationId ?? "")?.name ?? "Platform"),
+      })),
+      coupons: coupons.map((c) => ({
+        id: c.id,
+        code: c.code,
+        discountPercent: c.discountPercent,
+        plan: c.plan ?? "All plans",
+        status: c.status,
+        expiresAt: iso(c.expiresAt),
+        description: c.description ?? "",
+        createdAt: iso(c.createdAt),
+      })),
+      orgCount: orgs.length,
+      userCount: users.length,
+      activeCouponCount: coupons.filter((c) => c.status === "Active").length,
+      couponCount: coupons.length,
+      deviceCount: devices,
+    };
+  }, { orgs: [], users: [], coupons: [], orgCount: 0, userCount: 0, activeCouponCount: 0, couponCount: 0, deviceCount: 0 });
+}

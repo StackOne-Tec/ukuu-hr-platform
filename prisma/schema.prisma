@@ -436,6 +436,18 @@ model LicenseCode {
   issuedAt       DateTime  @default(now())
 }
 
+/* Platform-level discount coupons (admin portal only) */
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int       @default(0)
+  plan            String? // plan this coupon applies to, e.g. Professional | Enterprise
+  status          String    @default("Active") // Active | Disabled | Expired
+  expiresAt       DateTime?
+  description     String?
+  createdAt       DateTime  @default(now())
+}
+
 model ExpenseRequest {
   id             String   @id @default(cuid())
   organizationId String?
