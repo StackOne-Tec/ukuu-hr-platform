@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDemoOrg } from "@/lib/org";
 import { generateApiKey, hashApiKey, lastFour, maskApiKey, DEFAULT_SCOPES, scopesToLabels } from "@/lib/apikey";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +8,8 @@ export const dynamic = "force-dynamic";
 const DB_DOWN = "The database is temporarily unreachable. Please try again in a moment.";
 
 async function orgId(): Promise<string | null> {
-  const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+  /* create the baseline organization if the DB was never seeded */
+  const org = await ensureDemoOrg();
   return org?.id ?? null;
 }
 
