@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { IS_ADMIN_PLATFORM } from "@/lib/platform"
 import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
 
@@ -226,7 +227,7 @@ export default function AuthExperience() {
               ? `Welcome back${data.user?.name ? `, ${data.user.name}` : ""}! Redirecting to your workspace…`
               : `Your workspace is ready. Redirecting…`,
         })
-        const dest = returnUrl || "/dashboard"
+        const dest = returnUrl || (IS_ADMIN_PLATFORM ? "/dashboard" : "/")
         window.setTimeout(() => router.push(dest), 1100)
       } catch (err) {
         setBanner({
