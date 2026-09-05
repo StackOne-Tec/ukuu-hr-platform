@@ -27,6 +27,7 @@ import {
   CircleHelp,
   BarChart3,
 } from "lucide-react";
+import { IS_ADMIN_PLATFORM } from "@/lib/platform";
 import "../../app/admin.css";
 
 /* ───────────────────────── theme store ───────────────────────── */
@@ -190,11 +191,15 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
           {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Administration</div>}
           {ADMIN.map((e) => renderEntry(e))}
 
-          {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Super Admin</div>}
-          <Link href="/super-admin" className={`bk-admin-sidebar-item${isActive("super-admin") ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
-            <span className="bk-admin-sidebar-item-icon"><ShieldUser size={19} strokeWidth={1.9} /></span>
-            {!collapsed && <span className="bk-admin-sidebar-item-text">Platform Admin</span>}
-          </Link>
+          {IS_ADMIN_PLATFORM && (
+            <>
+              {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Super Admin</div>}
+              <Link href="/super-admin" className={`bk-admin-sidebar-item${isActive("super-admin") ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
+                <span className="bk-admin-sidebar-item-icon"><ShieldUser size={19} strokeWidth={1.9} /></span>
+                {!collapsed && <span className="bk-admin-sidebar-item-text">Platform Admin</span>}
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className="bk-admin-sidebar-footer">
