@@ -103,6 +103,25 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ overtime: true, devices: true });
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; read: boolean; createdAt: string }[]>([]);
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/notifications")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d?.ok) {
+          setNotifs(d.items);
+          setUnread(d.unread);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   const themeDark = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
 
   useEffect(() => {
@@ -244,10 +263,49 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
           <button type="button" className="bk-admin-topbar-icon-btn" title="System status" aria-label="System status">
             <Cloud size={18} strokeWidth={1.9} />
           </button>
-          <button type="button" className="bk-admin-topbar-icon-btn" title="Notifications" aria-label="Notifications">
-            <Bell size={18} strokeWidth={1.9} />
-            <span className="bk-dot" />
-          </button>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="bk-admin-topbar-icon-btn"
+              title="Notifications"
+              aria-label="Notifications"
+              onClick={() => {
+                setNotifOpen((o) => !o);
+                if (!notifOpen && unread > 0) {
+                  fetch("/api/notifications", { method: "POST" }).catch(() => {});
+                  setUnread(0);
+                  setNotifs((ns) => ns.map((n) => ({ ...n, read: true })));
+                }
+              }}
+            >
+              <Bell size={18} strokeWidth={1.9} />
+              {unread > 0 && <span className="bk-dot" />}
+            </button>
+            {notifOpen && (
+              <div
+                style={{
+                  position: "absolute", right: 0, top: 44, width: 340, maxHeight: 420, overflowY: "auto",
+                  background: "var(--bk-card, #fff)", border: "1px solid var(--bk-line)", borderRadius: 14,
+                  boxShadow: "0 12px 40px rgba(23,10,55,.16)", zIndex: 200, padding: 6,
+                }}
+              >
+                <div style={{ padding: "10px 12px 6px", fontWeight: 800, fontSize: 13.5, color: "var(--bk-ink)" }}>Notifications</div>
+                {notifs.length === 0 && (
+                  <div style={{ padding: "18px 12px", color: "var(--bk-ink-3)", fontSize: 13 }}>No notifications yet.</div>
+                )}
+                {notifs.map((n) => (
+                  <div key={n.id} style={{ padding: "10px 12px", borderTop: "1px solid var(--bk-line)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: n.read ? "var(--bk-line)" : "#7B2FBE", marginTop: 5, flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--bk-ink)" }}>{n.title}</div>
+                      <div style={{ fontSize: 12, color: "var(--bk-ink-2)", lineHeight: 1.45 }}>{n.message}</div>
+                      <div style={{ fontSize: 10.5, color: "var(--bk-ink-3)", marginTop: 3 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <Link href="/settings" className="bk-admin-topbar-icon-btn" title="Help" aria-label="Help">
             <CircleHelp size={18} strokeWidth={1.9} />
           </Link>

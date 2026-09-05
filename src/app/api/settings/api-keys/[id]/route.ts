@@ -25,6 +25,18 @@ export async function POST(_req: Request, { params }: Ctx) {
         lastUsedAt: null,
       },
     });
+    await db.auditLog
+      .create({
+        data: {
+          organizationId: rotated.organizationId ?? null,
+          userName: "Administrator",
+          action: "ApiKey.Rotate",
+          entityType: "ApiKey",
+          entityId: rotated.id,
+          details: rotated.name,
+        },
+      })
+      .catch(() => {});
     return NextResponse.json({
       ok: true,
       id: rotated.id,
@@ -47,6 +59,18 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     const existing = await db.apiKey.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ ok: false, error: "API key not found" }, { status: 404 });
     await db.apiKey.update({ where: { id }, data: { isActive: false } });
+    await db.auditLog
+      .create({
+        data: {
+          organizationId: existing.organizationId ?? null,
+          userName: "Administrator",
+          action: "ApiKey.Delete",
+          entityType: "ApiKey",
+          entityId: existing.id,
+          details: existing.name,
+        },
+      })
+      .catch(() => {});
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false, error: DB_DOWN, dbDown: true }, { status: 503 });

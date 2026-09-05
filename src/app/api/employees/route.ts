@@ -35,6 +35,18 @@ export async function POST(req: Request) {
     const employee = body.id
       ? await db.employee.update({ where: { id: body.id }, data })
       : await db.employee.create({ data });
+    await db.auditLog
+      .create({
+        data: {
+          organizationId: org?.id ?? null,
+          userName: "Administrator",
+          action: body.id ? "Employee.Update" : "Employee.Create",
+          entityType: "Employee",
+          entityId: employee.id,
+          details: `${employee.firstName} ${employee.lastName} (${employee.employeeCode})`,
+        },
+      })
+      .catch(() => {});
     return NextResponse.json({ ok: true, id: employee.id });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Failed to save employee" }, { status: 500 });
