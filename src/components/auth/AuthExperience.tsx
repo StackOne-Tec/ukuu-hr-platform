@@ -18,7 +18,7 @@ import {
   User,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { IS_ADMIN_PLATFORM } from "@/lib/platform"
+import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
 import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
 
@@ -263,7 +263,7 @@ export default function AuthExperience() {
 
         <main className="au-main">
           <div className="au-topbar">
-            <a href="/" className="au-back">
+            <a href={HOME_HREF} className="au-back">
               <ArrowLeft size={16} strokeWidth={2.2} />
               Back to home
             </a>

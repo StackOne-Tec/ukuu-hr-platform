@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { HOME_HREF } from "@/lib/platform"
 import { SignupSidebar } from "./SignupSidebar"
 import { GoogleLogo } from "./google-logo"
 
@@ -220,7 +221,7 @@ export default function SignupExperience() {
 
         <main className="sg-main">
           <div className="sg-topbar">
-            <a href="/" className="sg-back">
+            <a href={HOME_HREF} className="sg-back">
               <ArrowLeft size={15} strokeWidth={2.2} />
               Back to home
             </a>
@@ -237,7 +238,7 @@ export default function SignupExperience() {
 
           <div className="sg-col">
             <div className="sg-mobile-head">
-              <a href="/" className="sg-logo" aria-label="Ukuu HR home">
+              <a href={HOME_HREF} className="sg-logo" aria-label="Ukuu HR home">
                 <span className="sg-logo-badge">
                   <User size={20} strokeWidth={2} />
                 </span>
