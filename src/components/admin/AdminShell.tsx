@@ -26,13 +26,7 @@ import {
   Bell,
   CircleHelp,
   BarChart3,
-  Banknote,
-  CreditCard,
-  FileText,
-  MessageSquare,
-  Timer,
 } from "lucide-react";
-import { IS_ADMIN_PLATFORM } from "@/lib/platform";
 import "../../app/admin.css";
 
 /* ───────────────────────── theme store ───────────────────────── */
@@ -98,19 +92,6 @@ const ADMIN: Entry[] = [
   { key: "settings", label: "Settings", href: "/settings", icon: Settings },
   { key: "security", label: "Security & Audit", href: "/security", icon: ShieldCheck },
 ];
-
-/* modules that remain on the standard (non-admin) deployment */
-const STANDARD: Entry[] = [
-  { key: "clock", label: "Clock In/Out", href: "/clock", icon: Fingerprint },
-  { key: "payroll", label: "Payroll", href: "/payroll", icon: Banknote },
-  { key: "billing", label: "Billing", href: "/billing", icon: CreditCard },
-  { key: "documents", label: "Documents", href: "/documents", icon: FileText },
-  { key: "timecards", label: "Timecards", href: "/timecards", icon: Timer },
-  { key: "messages", label: "Messages", href: "/messages", icon: MessageSquare },
-];
-
-const HOME_HREF = IS_ADMIN_PLATFORM ? "/dashboard" : "/";
-const PROFILE_HREF = IS_ADMIN_PLATFORM ? "/settings" : "/clock";
 
 interface AdminShellProps {
   activeKey?: string;
@@ -192,7 +173,7 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
   return (
     <div className="bk-admin-body">
       <div className={`bk-admin-sidebar${collapsed ? " collapsed" : ""}${mobileOpen ? " mobile-open" : ""}`}>
-        <Link href={HOME_HREF} className="bk-admin-sidebar-brand" onClick={() => setMobileOpen(false)}>
+        <Link href="/dashboard" className="bk-admin-sidebar-brand" onClick={() => setMobileOpen(false)}>
           <span className="bk-admin-sidebar-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></span>
           {!collapsed && (
             <span>
@@ -203,26 +184,17 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
         </Link>
 
         <nav className="bk-admin-sidebar-nav">
-          {IS_ADMIN_PLATFORM ? (
-            <>
-              {!collapsed && <div className="bk-admin-sidebar-section-label">Workspace</div>}
-              {WORKSPACE.map((e) => renderEntry(e))}
+          {!collapsed && <div className="bk-admin-sidebar-section-label">Workspace</div>}
+          {WORKSPACE.map((e) => renderEntry(e))}
 
-              {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Administration</div>}
-              {ADMIN.map((e) => renderEntry(e))}
+          {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Administration</div>}
+          {ADMIN.map((e) => renderEntry(e))}
 
-              {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Super Admin</div>}
-              <Link href="/super-admin" className={`bk-admin-sidebar-item${isActive("super-admin") ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
-                <span className="bk-admin-sidebar-item-icon"><ShieldUser size={19} strokeWidth={1.9} /></span>
-                {!collapsed && <span className="bk-admin-sidebar-item-text">Platform Admin</span>}
-              </Link>
-            </>
-          ) : (
-            <>
-              {!collapsed && <div className="bk-admin-sidebar-section-label">Workspace</div>}
-              {STANDARD.map((e) => renderEntry(e))}
-            </>
-          )}
+          {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Super Admin</div>}
+          <Link href="/super-admin" className={`bk-admin-sidebar-item${isActive("super-admin") ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
+            <span className="bk-admin-sidebar-item-icon"><ShieldUser size={19} strokeWidth={1.9} /></span>
+            {!collapsed && <span className="bk-admin-sidebar-item-text">Platform Admin</span>}
+          </Link>
         </nav>
 
         <div className="bk-admin-sidebar-footer">
@@ -271,10 +243,10 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
             <Bell size={18} strokeWidth={1.9} />
             <span className="bk-dot" />
           </button>
-          <Link href={PROFILE_HREF} className="bk-admin-topbar-icon-btn" title="Help" aria-label="Help">
+          <Link href="/settings" className="bk-admin-topbar-icon-btn" title="Help" aria-label="Help">
             <CircleHelp size={18} strokeWidth={1.9} />
           </Link>
-          <Link href={PROFILE_HREF} className="bk-admin-topbar-avatar" aria-label="Profile">A</Link>
+          <Link href="/settings" className="bk-admin-topbar-avatar" aria-label="Profile">A</Link>
         </header>
 
         {mobileOpen && (
@@ -290,20 +262,12 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
       {/* mobile bottom nav */}
       <nav className="bk-mobile-bottomnav" aria-label="Primary navigation">
         <div className="bk-mobile-bottomnav-items">
-          {(IS_ADMIN_PLATFORM
-            ? [
-                { href: "/dashboard", label: "Home", icon: LayoutDashboard, key: "dashboard" },
-                { href: "/employees", label: "Team", icon: Users, key: "employees" },
-                { href: "/attendance", label: "Attendance", icon: Clock, key: "attendance" },
-                { href: "/leave", label: "Leave", icon: CalendarCheck, key: "leave" },
-              ]
-            : [
-                { href: "/clock", label: "Clock", icon: Clock, key: "clock" },
-                { href: "/payroll", label: "Payroll", icon: Banknote, key: "payroll" },
-                { href: "/documents", label: "Docs", icon: FileText, key: "documents" },
-                { href: "/messages", label: "Messages", icon: MessageSquare, key: "messages" },
-              ]
-          ).map((n) => (
+          {[
+            { href: "/dashboard", label: "Home", icon: LayoutDashboard, key: "dashboard" },
+            { href: "/employees", label: "Team", icon: Users, key: "employees" },
+            { href: "/attendance", label: "Attendance", icon: Clock, key: "attendance" },
+            { href: "/leave", label: "Leave", icon: CalendarCheck, key: "leave" },
+          ].map((n) => (
             <Link key={n.key} href={n.href} className={`bk-mobile-bottomnav-item${isActive(n.key) ? " active" : ""}`}>
               <n.icon size={20} strokeWidth={1.9} />
               <span>{n.label}</span>

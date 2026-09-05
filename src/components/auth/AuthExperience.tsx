@@ -18,7 +18,7 @@ import {
   User,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
+import { HOME_HREF } from "@/lib/platform"
 import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
 
@@ -227,7 +227,8 @@ export default function AuthExperience() {
               ? `Welcome back${data.user?.name ? `, ${data.user.name}` : ""}! Redirecting to your workspace…`
               : `Your workspace is ready. Redirecting…`,
         })
-        const dest = returnUrl || (IS_ADMIN_PLATFORM ? "/dashboard" : "/")
+        /* every deployment signs users into the console dashboard */
+        const dest = returnUrl || "/dashboard"
         window.setTimeout(() => router.push(dest), 1100)
       } catch (err) {
         setBanner({
