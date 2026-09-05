@@ -12,9 +12,6 @@ export const metadata: Metadata = {
   description: "UkuuHR workspace dashboard — employees, attendance, leave, overtime and device status at a glance.",
 };
 
-const STATUS_PILL: Record<string, string> = {
-  Present: "active", Late: "gold", Absent: "inactive", OnLeave: "info", Remote: "probation",
-};
 const RATE_PILL: Record<string, string> = { Standard: "pending", Weekend: "info", PublicHoliday: "gold" };
 
 export default async function DashboardPage() {
@@ -126,36 +123,6 @@ export default async function DashboardPage() {
             {d.devices.length === 0 && <div className="bk-admin-empty">No devices registered yet.</div>}
           </div>
         </div>
-      </div>
-
-      {/* today's clock in/out */}
-      <div className="bk-admin-card" style={{ marginBottom: 24 }}>
-        <div className="bk-admin-card-header">
-          <div>
-            <h3>Today&rsquo;s Clock In/Out</h3>
-            <p>{new Date().toLocaleDateString("en", { day: "numeric", month: "long", year: "numeric" })} · {d.todayAttendance.length} employee(s) recorded</p>
-          </div>
-          <Link href="/attendance" className="bk-btn-text">View All</Link>
-        </div>
-        <table className="bk-admin-table">
-          <thead>
-            <tr><th>Employee</th><th>Status</th><th>Clock In</th><th>Clock Out</th><th>Hours</th></tr>
-          </thead>
-          <tbody>
-            {d.todayAttendance.length === 0 && (
-              <tr><td colSpan={5} style={{ textAlign: "center", padding: 24, color: "var(--bk-ink-3)", fontSize: 13 }}>No attendance records for today yet.</td></tr>
-            )}
-            {d.todayAttendance.map((a) => (
-              <tr key={a.id}>
-                <td style={{ fontWeight: 600 }}>{a.employeeName}</td>
-                <td><span className={`bk-admin-pill ${STATUS_PILL[a.status] ?? "active"}`}>{a.status}</span></td>
-                <td className="bk-mono">{a.checkIn}</td>
-                <td className="bk-mono">{a.checkOut}</td>
-                <td className="bk-mono" style={{ fontWeight: 700 }}>{a.hours}h</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       {/* overtime pending approval */}
