@@ -9,9 +9,20 @@ import { PLATFORM, isAdminOnlyPath } from "./lib/platform";
  * routes are redirected to the public homepage instead.
  */
 export default function proxy(req: NextRequest) {
-  if (PLATFORM !== "standard") return NextResponse.next();
-
   const { pathname } = req.nextUrl;
+
+  if (PLATFORM === "admin") {
+    /* the admin portal has no marketing landing page — start at sign-in */
+    if (pathname === "/") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  /* standard (non-admin) platform: block admin-only feature areas */
   if (isAdminOnlyPath(pathname)) {
     const url = req.nextUrl.clone();
     url.pathname = "/";
@@ -24,6 +35,7 @@ export default function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/employees/:path*",
     "/attendance/:path*",

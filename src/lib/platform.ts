@@ -16,6 +16,10 @@ export const PLATFORM: Platform =
 
 export const IS_ADMIN_PLATFORM = PLATFORM === "admin";
 
+/** Where brand/home links should point on this deployment.
+ *  The admin portal has no marketing landing — it starts at sign-in. */
+export const HOME_HREF = IS_ADMIN_PLATFORM ? "/login" : "/";
+
 /** Top-level route prefixes that belong to the admin-only feature set. */
 export const ADMIN_ONLY_PREFIXES = [
   "/dashboard",

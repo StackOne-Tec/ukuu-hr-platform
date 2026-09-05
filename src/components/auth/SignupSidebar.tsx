@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { HOME_HREF } from "@/lib/platform"
 import { UkuuLogoMark } from "@/components/landing/Header"
 
 /** Hand-drawn squiggle underline for the word "unified". */
@@ -105,7 +106,7 @@ export function SignupSidebar() {
 
   return (
     <aside className="sg-side" aria-label="Why Ukuu HR">
-      <a href="/" className="sg-logo" aria-label="Ukuu HR home">
+      <a href={HOME_HREF} className="sg-logo" aria-label="Ukuu HR home">
         <span className="sg-logo-badge">
           <UkuuLogoMark size={26} white />
         </span>

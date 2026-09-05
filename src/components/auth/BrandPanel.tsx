@@ -1,6 +1,7 @@
 "use client"
 
 import { Users, Fingerprint, CalendarClock } from "lucide-react"
+import { HOME_HREF } from "@/lib/platform"
 import { UkuuLogoMark } from "@/components/landing/Header"
 
 const FEATURES = [
@@ -40,7 +41,7 @@ const SPARKS = [
 
 export function BrandLogo() {
   return (
-    <a href="/" className="au-logo" aria-label="Ukuu HR home">
+    <a href={HOME_HREF} className="au-logo" aria-label="Ukuu HR home">
       <span className="au-logo-badge">
         <UkuuLogoMark size={26} white />
       </span>
