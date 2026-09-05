@@ -1,0 +1,448 @@
+/* ============================================================
+   UKUU HR — Bridge desktop app · Gateway Login (br-* scope)
+   Dark Material-3 surface palette ported 1:1 from the desktop
+   window design (Geist + JetBrains Mono, macOS window chrome).
+   ============================================================ */
+
+@import "tailwindcss";
+
+@theme inline {
+  --font-br-sans: var(--font-bridge-geist), "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-br-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+
+@theme {
+  /* ── surfaces ── */
+  --color-br-surface-container-lowest: #0d0c1d;
+  --color-br-surface-dim: #121123;
+  --color-br-surface: #121123;
+  --color-br-background: #121123;
+  --color-br-surface-container-low: #1b1a2b;
+  --color-br-surface-container: #1f1e2f;
+  --color-br-surface-container-high: #29283a;
+  --color-br-surface-container-highest: #343346;
+  --color-br-surface-bright: #39374a;
+  --color-br-surface-variant: #343346;
+
+  /* ── text / outline ── */
+  --color-br-on-surface: #e4e0f8;
+  --color-br-on-background: #e4e0f8;
+  --color-br-on-surface-variant: #cbc3d7;
+  --color-br-outline: #958ea0;
+  --color-br-outline-variant: #494454;
+
+  /* ── primary ── */
+  --color-br-primary: #d0bcff;
+  --color-br-on-primary: #3c0091;
+  --color-br-primary-container: #a078ff;
+  --color-br-on-primary-container: #340080;
+  --color-br-primary-fixed: #e9ddff;
+  --color-br-primary-fixed-dim: #d0bcff;
+  --color-br-on-primary-fixed: #23005c;
+  --color-br-on-primary-fixed-variant: #5516be;
+  --color-br-inverse-primary: #6d3bd7;
+
+  /* ── secondary ── */
+  --color-br-secondary: #c0c1ff;
+  --color-br-on-secondary: #1000a9;
+  --color-br-secondary-container: #3131c0;
+  --color-br-on-secondary-container: #b0b2ff;
+  --color-br-secondary-fixed: #e1e0ff;
+  --color-br-secondary-fixed-dim: #c0c1ff;
+  --color-br-on-secondary-fixed: #07006c;
+  --color-br-on-secondary-fixed-variant: #2f2ebe;
+
+  /* ── tertiary ── */
+  --color-br-tertiary: #ddb7ff;
+  --color-br-on-tertiary: #490080;
+  --color-br-tertiary-container: #b76dff;
+  --color-br-on-tertiary-container: #400071;
+  --color-br-tertiary-fixed: #f0dbff;
+  --color-br-tertiary-fixed-dim: #ddb7ff;
+  --color-br-on-tertiary-fixed: #2c0051;
+  --color-br-on-tertiary-fixed-variant: #6900b3;
+
+  /* ── error ── */
+  --color-br-error: #ffb4ab;
+  --color-br-on-error: #690005;
+  --color-br-error-container: #93000a;
+  --color-br-on-error-container: #ffdad6;
+
+  /* ── inverse ── */
+  --color-br-inverse-surface: #e4e0f8;
+  --color-br-inverse-on-surface: #302e41;
+
+  /* ── typography scale ── */
+  --text-br-display-lg: 32px;
+  --text-br-display-lg--line-height: 40px;
+  --text-br-display-lg--letter-spacing: -0.025em;
+  --text-br-display-lg--font-weight: 600;
+
+  --text-br-headline-md: 22px;
+  --text-br-headline-md--line-height: 28px;
+  --text-br-headline-md--letter-spacing: -0.02em;
+  --text-br-headline-md--font-weight: 600;
+
+  --text-br-headline-sm: 16px;
+  --text-br-headline-sm--line-height: 24px;
+  --text-br-headline-sm--letter-spacing: -0.015em;
+  --text-br-headline-sm--font-weight: 600;
+
+  --text-br-body-md: 14px;
+  --text-br-body-md--line-height: 20px;
+  --text-br-body-md--letter-spacing: -0.01em;
+  --text-br-body-md--font-weight: 400;
+
+  --text-br-body-sm: 12px;
+  --text-br-body-sm--line-height: 16px;
+  --text-br-body-sm--letter-spacing: 0em;
+  --text-br-body-sm--font-weight: 400;
+
+  --text-br-label-caps: 11px;
+  --text-br-label-caps--line-height: 14px;
+  --text-br-label-caps--letter-spacing: 0.06em;
+  --text-br-label-caps--font-weight: 600;
+
+  --text-br-code-mono: 12px;
+  --text-br-code-mono--line-height: 16px;
+  --text-br-code-mono--letter-spacing: 0.02em;
+  --text-br-code-mono--font-weight: 500;
+
+  --text-br-code-mono-sm: 10px;
+  --text-br-code-mono-sm--line-height: 14px;
+  --text-br-code-mono-sm--letter-spacing: 0.04em;
+  --text-br-code-mono-sm--font-weight: 500;
+}
+
+/* hide scrollbars inside the bridge window */
+.br-root {
+  scrollbar-width: none;
+}
+.br-root::-webkit-scrollbar {
+  display: none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BRIDGE DESKTOP DASHBOARD (shared with Gateway login)
+   ════════════════════════════════════════════════════════════ */
+
+/* --- panels --- */
+.br-panel {
+  background: rgba(18, 17, 35, 0.86);
+  border: 1px solid rgba(52, 51, 70, 0.7);
+  border-radius: 0.5rem;
+  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.55);
+  min-width: 0;
+}
+.br-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(52, 51, 70, 0.6);
+}
+.br-panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-br-on-surface);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.br-panel-sub {
+  margin: 2px 0 0;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-br-on-surface-variant);
+}
+
+/* --- KPI cards --- */
+.br-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(18, 17, 35, 0.86);
+  border: 1px solid rgba(52, 51, 70, 0.7);
+  border-radius: 0.5rem;
+  padding: 14px 18px;
+  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.55);
+  min-width: 0;
+}
+.br-kpi-value {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-br-on-surface);
+}
+.br-kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-br-on-surface-variant);
+}
+.br-kpi-sub {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-br-outline);
+}
+
+/* --- form controls --- */
+.br-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-br-on-surface-variant);
+}
+.br-input,
+.br-select {
+  width: 100%;
+  background: #0d0c1d;
+  border: 1px solid #343346;
+  border-radius: 0.25rem;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-br-on-surface);
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.br-input::placeholder {
+  color: #958ea0;
+}
+.br-input:focus,
+.br-select:focus {
+  border-color: #a078ff;
+  background: #1b1a2b;
+  box-shadow: 0 0 0 3px rgba(160, 120, 255, 0.14);
+}
+.br-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23958ea0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+  cursor: pointer;
+}
+
+/* --- buttons --- */
+.br-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 0.25rem;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.br-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.br-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.br-btn--sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.br-btn-primary {
+  background: linear-gradient(90deg, #a078ff, #a078ff 55%, #3131c0);
+  color: #3c0091;
+  box-shadow: 0 8px 20px -8px rgba(160, 120, 255, 0.4);
+}
+.br-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.br-btn-ghost {
+  background: transparent;
+  border-color: #343346;
+  color: var(--color-br-on-surface);
+}
+.br-btn-ghost:hover:not(:disabled) {
+  background: #1b1a2b;
+  border-color: #494454;
+}
+.br-btn-danger {
+  background: rgba(147, 0, 10, 0.22);
+  border-color: rgba(255, 180, 171, 0.25);
+  color: #ffb4ab;
+}
+.br-btn-danger:hover:not(:disabled) {
+  background: rgba(147, 0, 10, 0.38);
+}
+
+/* --- pills --- */
+.br-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.br-pill--ok {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.br-pill--warn {
+  color: #ddb7ff;
+  background: rgba(221, 183, 255, 0.1);
+  border: 1px solid rgba(221, 183, 255, 0.28);
+}
+.br-pill--err {
+  color: #ffb4ab;
+  background: rgba(255, 180, 171, 0.1);
+  border: 1px solid rgba(255, 180, 171, 0.28);
+}
+.br-pill--auto {
+  color: #c0c1ff;
+  background: rgba(49, 49, 192, 0.35);
+  border: 1px solid rgba(192, 193, 255, 0.3);
+}
+.br-pill--tint {
+  color: #d0bcff;
+  background: rgba(208, 188, 255, 0.1);
+  border: 1px solid rgba(208, 188, 255, 0.25);
+}
+.br-pill--muted {
+  color: #cbc3d7;
+  background: rgba(203, 195, 215, 0.08);
+  border: 1px solid rgba(203, 195, 215, 0.18);
+}
+
+/* --- status dot --- */
+.br-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.br-dot--online {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+.br-dot--offline {
+  background: #958ea0;
+  box-shadow: 0 0 0 3px rgba(149, 142, 160, 0.15);
+}
+.br-dot--error {
+  background: #ffb4ab;
+  box-shadow: 0 0 0 3px rgba(255, 180, 171, 0.18);
+}
+
+/* --- device rows --- */
+.br-dev-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(52, 51, 70, 0.45);
+}
+.br-dev-row:last-child {
+  border-bottom: 0;
+}
+
+/* --- toggle switch --- */
+.br-switch {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  border: 1px solid #494454;
+  background: #0d0c1d;
+  cursor: pointer;
+  padding: 0;
+  flex: 0 0 auto;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.br-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #958ea0;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.br-switch--on {
+  background: #3131c0;
+  border-color: #3131c0;
+}
+.br-switch--on::after {
+  transform: translateX(15px);
+  background: #c0c1ff;
+}
+
+/* --- tables --- */
+.br-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.br-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #958ea0;
+  border-bottom: 1px solid rgba(52, 51, 70, 0.7);
+  white-space: nowrap;
+}
+.br-table td {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--color-br-on-surface);
+  border-bottom: 1px solid rgba(52, 51, 70, 0.4);
+  white-space: nowrap;
+}
+.br-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* --- sync rows --- */
+.br-sync-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 18px;
+  border-bottom: 1px solid rgba(52, 51, 70, 0.45);
+}
+.br-sync-row:last-child {
+  border-bottom: 0;
+}
+
+/* --- empty state --- */
+.br-empty {
+  padding: 26px 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #958ea0;
+}

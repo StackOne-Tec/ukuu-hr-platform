@@ -44,7 +44,7 @@ export function Download() {
             <p>Windows 10+ · 64-bit — Self-contained .exe</p>
             <a
               className="lp-dl-btn"
-              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.1/UkuuHr-Windows-x64.exe"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-Windows-x64.exe"
               target="_blank"
               rel="noreferrer"
             >
@@ -65,7 +65,7 @@ export function Download() {
             <p>macOS 11+ · Apple Silicon (M1/M2/M3) — Drag-to-install .dmg</p>
             <a
               className="lp-dl-btn"
-              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.1/UkuuHr-macOS-arm64.dmg"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-macOS-arm64.dmg"
               target="_blank"
               rel="noreferrer"
             >
@@ -81,6 +81,10 @@ export function Download() {
               <MIcon name="download" size={17} />
               Intel (x64) .dmg
             </a>
+            <p className="lp-dl-note">
+              Intel (x64) ships with the v3.4.1 release — Codemagic publishes
+              Apple Silicon builds.
+            </p>
             <p className="lp-dl-note">
               Open the .dmg → drag UkuuHrSync.app to Applications. First launch:
               right-click → Open.
@@ -115,6 +119,23 @@ export function Download() {
             </div>
           </Reveal>
         </div>
+
+        <Reveal delay={100} className="lp-preview-banner">
+          <div className="lp-pwa-icon">
+            <MIcon name="login" size={26} />
+          </div>
+          <div className="lp-pwa-text">
+            <h4>Curious about the desktop app?</h4>
+            <p>
+              Preview the Bridge Gateway sign-in screen in your browser — the
+              same authentication flow the installed desktop app uses.
+            </p>
+          </div>
+          <a className="lp-preview-link" href="/bridge/login">
+            <MIcon name="login" size={16} />
+            Open Bridge Login
+          </a>
+        </Reveal>
 
         <Reveal delay={120} className="lp-pwa-banner">
           <div className="lp-pwa-icon">
