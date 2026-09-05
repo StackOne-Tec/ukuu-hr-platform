@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 import { fetchDeviceEvents, fetchDeviceUsers } from "@/lib/isapi";
 import { ingestClockEvents } from "@/lib/clock";
 
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
     // Persist what was retrieved — shared write path with the Bridge app.
     let orgId: string | null = null;
     try {
-      const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+      const org = await currentOrg();
       orgId = org?.id ?? null;
     } catch {
       /* DB unreachable — the ingest helper reports dbUnreachable */

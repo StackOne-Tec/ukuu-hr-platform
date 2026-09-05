@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const created = await db.attendanceDevice.create({
       data: {
         organizationId: org?.id ?? null,

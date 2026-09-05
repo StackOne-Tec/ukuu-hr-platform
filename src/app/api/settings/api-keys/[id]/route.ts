@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 import { generateApiKey, hashApiKey, lastFour, maskApiKey, scopesToLabels } from "@/lib/apikey";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,11 @@ export async function POST(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const existing = await db.apiKey.findUnique({ where: { id } });
-    if (!existing) return NextResponse.json({ ok: false, error: "API key not found" }, { status: 404 });
+    const org = await currentOrg();
+    // Tenant isolation: only the owning organization may rotate its keys.
+    if (!existing || existing.organizationId !== (org?.id ?? null)) {
+      return NextResponse.json({ ok: false, error: "API key not found" }, { status: 404 });
+    }
 
     const key = generateApiKey();
     const rotated = await db.apiKey.update({
@@ -57,7 +62,11 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const existing = await db.apiKey.findUnique({ where: { id } });
-    if (!existing) return NextResponse.json({ ok: false, error: "API key not found" }, { status: 404 });
+    const org = await currentOrg();
+    // Tenant isolation: only the owning organization may revoke its keys.
+    if (!existing || existing.organizationId !== (org?.id ?? null)) {
+      return NextResponse.json({ ok: false, error: "API key not found" }, { status: 404 });
+    }
     await db.apiKey.update({ where: { id }, data: { isActive: false } });
     await db.auditLog
       .create({

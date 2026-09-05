@@ -140,6 +140,8 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
       localStorage.removeItem("ukuu_session");
       sessionStorage.removeItem("ukuu_session");
     } catch { /* ignore */ }
+    // Destroy the server-side tenant session (httpOnly cookie) before redirecting.
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     window.location.assign("/login");
   };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ensureDemoOrg } from "@/lib/org";
+import { currentOrg } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ const DB_DOWN = "The database is temporarily unreachable. Please try again in a 
  */
 export async function GET() {
   try {
-    const org = await ensureDemoOrg();
+    const org = await currentOrg();
     if (!org?.id) return NextResponse.json({ ok: true, unread: 0, items: [] });
 
     const [items, unread] = await Promise.all([
@@ -42,7 +42,7 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const org = await ensureDemoOrg();
+    const org = await currentOrg();
     if (org?.id) {
       await db.notification.updateMany({ where: { organizationId: org.id, read: false }, data: { read: true } });
     }

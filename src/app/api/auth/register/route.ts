@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -7,9 +9,11 @@ function titleCase(s: string): string {
 }
 
 /**
- * Mock account-creation endpoint for the demo auth experience.
- * Supports the full signup payload (first/last name, organization,
- * country, industry, size) as well as the legacy { name, email } shape.
+ * Account creation for the demo auth experience.
+ * Provisions a real, isolated tenant: each signup creates its own
+ * Organization + Admin UserAccount, so company data is fully separated from
+ * every other organization (FRS 11 — company data isolation). The httpOnly
+ * session cookie scopes the whole console to that organization.
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
@@ -76,18 +80,78 @@ export async function POST(req: Request) {
   /* simulate workspace provisioning */
   await new Promise((r) => setTimeout(r, 700))
 
-  const org = str(body?.organization)
-  const workspace = `${(org || email.split("@")[0] || "workspace")
+  const orgName = str(body?.organization)
+  const workspace = `${(orgName || email.split("@")[0] || "workspace")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 24) || "workspace"}.ukuuhr.app`
 
-  return NextResponse.json({
-    ok: true,
-    user: { email, name, organization: org, country },
-    token: `ukuu_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
-    workspace,
-    plan: "trial-14d",
-  })
+  try {
+    let organizationId: string | null = null
+    let userId: string | null = null
+
+    const existingUser = await db.userAccount.findUnique({ where: { email } })
+    if (existingUser?.organizationId) {
+      // Returning user — sign into their existing (isolated) tenant.
+      organizationId = existingUser.organizationId
+      userId = existingUser.id
+    } else {
+      // New signup — provision a brand-new, isolated organization.
+      let slug = workspace.replace(/\.ukuuhr\.app$/, "")
+      let suffix = 1
+      while (await db.organization.findUnique({ where: { slug } })) {
+        slug = `${workspace.replace(/\.ukuuhr\.app$/, "")}-${suffix++}`
+      }
+      const org = await db.organization.create({
+        data: {
+          name: orgName || name,
+          slug,
+          email,
+          country,
+          currency: "ZMW",
+          plan: "trial-14d",
+        },
+      })
+      const user = await db.userAccount.create({
+        data: {
+          organizationId: org.id,
+          name,
+          email,
+          role: "Admin",
+        },
+      })
+      organizationId = org.id
+      userId = user.id
+    }
+
+    const sessionToken =
+      organizationId && userId
+        ? await createWebSession({ userId, organizationId, remember: true })
+        : null
+
+    const res = NextResponse.json({
+      ok: true,
+      user: { email, name, organization: orgName, country },
+      token: `ukuu_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+      workspace,
+      plan: "trial-14d",
+      organizationId,
+    })
+    if (sessionToken) {
+      res.cookies.set(SESSION_COOKIE, sessionToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: SESSION_DAYS * 86400,
+      })
+    }
+    return res
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+      { status: 503 }
+    )
+  }
 }

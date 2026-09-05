@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 import { createNotification } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -7,8 +8,13 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const org = await currentOrg();
     if (body.id && body.status) {
       const prev = await db.leaveRequest.findUnique({ where: { id: body.id } });
+      // Tenant isolation: only the owning organization may review a request.
+      if (!prev || prev.organizationId !== (org?.id ?? null)) {
+        return NextResponse.json({ ok: false, error: "Leave request not found" }, { status: 404 });
+      }
       await db.leaveRequest.update({
         where: { id: body.id },
         data: { status: body.status, reviewedAt: new Date(), reviewedBy: "Administrator" },
@@ -28,7 +34,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
     // create new leave request
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
     const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;

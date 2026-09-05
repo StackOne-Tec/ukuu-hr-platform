@@ -28,6 +28,7 @@ model Organization {
   departments    Department[]
   apiKeys        ApiKey[]
   bridgeSessions BridgeSession[]
+  webSessions    WebSession[]
   syncRuns       SyncRun[]
 }
 
@@ -61,6 +62,19 @@ model SyncRun {
   createdAt       DateTime     @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+model WebSession {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  userId         String?
+  tokenHash      String       @unique
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime
+  lastUsedAt     DateTime?
+
+  @@index([organizationId])
 }
 
 model BridgeSession {

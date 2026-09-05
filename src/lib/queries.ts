@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { ensureDemoOrg } from "@/lib/org";
+import { currentOrg } from "@/lib/session";
 
 /* All helpers are defensive: if the database is unreachable they return
    empty/default shapes so pages still render. */
@@ -29,7 +29,7 @@ export async function getDashboardData() {
   return safe(async () => {
     const today = dayStart(new Date());
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
 
     const [employees, attendance, leaveReqs, overtime, devices, monthAtt, monthOt] = await Promise.all([
@@ -110,7 +110,7 @@ export async function getDashboardData() {
 
 export async function getEmployees() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const list = await db.employee.findMany({
       where: { organizationId: org?.id ?? "none" },
       include: { department: true },
@@ -192,7 +192,7 @@ export async function getEmployeeDetail(id: string) {
 
 export async function getAttendance(date?: string) {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const day = date ? new Date(date) : new Date();
     const start = dayStart(day);
     const end = new Date(start);
@@ -221,7 +221,7 @@ export async function getAttendance(date?: string) {
 
 export async function getAttendanceLogs() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const rows = await db.attendance.findMany({
       where: { organizationId: org?.id ?? "none" },
       orderBy: { date: "desc" },
@@ -244,7 +244,7 @@ export async function getAttendanceLogs() {
 
 export async function getClockEvents() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     return (await db.unifiedClockEvent.findMany({
       where: { organizationId: org?.id ?? "none" },
       orderBy: { eventTime: "desc" },
@@ -257,7 +257,7 @@ export async function getClockEvents() {
 
 export async function getDeviceImports() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const rows = await db.attendance.findMany({
       where: { organizationId: org?.id ?? "none", source: "Device", note: { contains: "Imported from" } },
       orderBy: { createdAt: "desc" },
@@ -281,7 +281,7 @@ export async function getDeviceImports() {
 
 export async function getLeave() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [requests, types, holidays, employees] = await Promise.all([
       db.leaveRequest.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" } }),
@@ -310,7 +310,7 @@ export async function getLeave() {
 
 export async function getPayroll() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const runs = await db.payrollRun.findMany({
       where: { organizationId: org?.id ?? "none" },
       include: { items: true },
@@ -347,7 +347,7 @@ export async function getPayroll() {
 
 export async function getShifts() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [shifts, assignments, deptAssigns, tolerance] = await Promise.all([
       db.shift.findMany({ where: { organizationId: orgId } }),
@@ -433,7 +433,7 @@ export async function getShifts() {
 
 export async function getOvertime() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [records, employees] = await Promise.all([
       db.overtimeRecord.findMany({ where: { organizationId: orgId }, orderBy: { date: "desc" } }),
@@ -455,7 +455,7 @@ export async function getOvertime() {
 
 export async function getDevices() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     return (await db.attendanceDevice.findMany({
       where: { organizationId: org?.id ?? "none" },
       orderBy: { name: "asc" },
@@ -480,7 +480,7 @@ export async function getDevices() {
 
 export async function getReportsData() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [employees, attendances, payrollRuns] = await Promise.all([
       db.employee.findMany({ where: { organizationId: orgId }, include: { department: true } }),
@@ -517,7 +517,7 @@ export async function getReportsData() {
 
 export async function getTimeCards() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [attendances, employees] = await Promise.all([
       db.attendance.findMany({ where: { organizationId: orgId }, orderBy: { date: "desc" }, take: 100 }),
@@ -547,7 +547,7 @@ export async function getTimeCards() {
 
 export async function getDocuments() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [docs, policies] = await Promise.all([
       db.employeeDocument.findMany({ where: { organizationId: orgId }, orderBy: { uploadedAt: "desc" } }),
@@ -564,7 +564,7 @@ export async function getDocuments() {
 
 export async function getMessages() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const convs = await db.hrConversation.findMany({ where: { organizationId: orgId }, include: { messages: { orderBy: { sentAt: "asc" } } }, orderBy: { createdAt: "desc" } });
     return convs.map((c) => ({
@@ -580,8 +580,7 @@ export async function getMessages() {
 
 export async function getSettings() {
   return safe(async () => {
-    await ensureDemoOrg();
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const orgId = org?.id ?? "none";
     const [branches, users, leaveTypes, notifications, licenses, employees, departments, apiKeys] = await Promise.all([
       db.branch.findMany({ where: { organizationId: orgId } }),
@@ -621,7 +620,7 @@ export async function getSettings() {
 
 export async function getSecurityData() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
     const logs = await db.auditLog.findMany({ where: { organizationId: org?.id ?? "none" }, orderBy: { createdAt: "desc" }, take: 50 });
     return logs.map((l) => ({ id: l.id, userName: l.userName, action: l.action, entityType: l.entityType ?? "", details: l.details ?? "", createdAt: iso(l.createdAt) }));
   }, []);
@@ -629,7 +628,10 @@ export async function getSecurityData() {
 
 export async function getBillingData() {
   return safe(async () => {
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" }, include: { users: true } });
+    const org = await currentOrg();
+    const orgWithUsers = org
+      ? await db.organization.findUnique({ where: { id: org.id }, include: { users: true } })
+      : null;
     const license = await db.licenseCode.findFirst({ where: { organizationId: org?.id ?? "none" } });
     const employees = await db.employee.count({ where: { organizationId: org?.id ?? "none" } });
     return {
@@ -638,7 +640,7 @@ export async function getBillingData() {
       status: license?.status ?? "Active",
       licenseCode: license?.code ?? "UKUU-2026-PRO-DEMO",
       expiresAt: iso(license?.expiresAt),
-      users: org?.users.length ?? 1,
+      users: orgWithUsers?.users.length ?? 1,
       employees,
     };
   }, { orgName: "UkuuHR Demo Ltd", plan: "Trial", status: "Active", licenseCode: "—", expiresAt: null, users: 1, employees: 0 });
