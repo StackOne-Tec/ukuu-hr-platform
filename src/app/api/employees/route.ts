@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
+    const org = await currentOrg();
+    // Tenant isolation: an update must reference a record owned by the session's organization.
+    if (body.id) {
+      const existing = await db.employee.findUnique({ where: { id: body.id } });
+      if (!existing || existing.organizationId !== (org?.id ?? null)) {
+        return NextResponse.json({ ok: false, error: "Employee not found" }, { status: 404 });
+      }
+    }
     const data = {
       organizationId: org?.id ?? null,
       employeeCode: body.employeeCode || `UKU-${String(Math.floor(Math.random() * 9000) + 1000)}`,

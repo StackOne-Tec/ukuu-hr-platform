@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { currentOrg } from "@/lib/session";
 import { createNotification } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -7,8 +8,13 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const org = await currentOrg();
     if (body.id && body.status) {
       const prev = await db.overtimeRecord.findUnique({ where: { id: body.id } });
+      // Tenant isolation: only the owning organization may review a record.
+      if (!prev || prev.organizationId !== (org?.id ?? null)) {
+        return NextResponse.json({ ok: false, error: "Overtime record not found" }, { status: 404 });
+      }
       await db.overtimeRecord.update({
         where: { id: body.id },
         data: { status: body.status, reviewedAt: new Date(), reviewedBy: "Administrator" },
@@ -27,7 +33,6 @@ export async function POST(req: Request) {
         .catch(() => {});
       return NextResponse.json({ ok: true });
     }
-    const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
     const created = await db.overtimeRecord.create({
       data: {
         organizationId: org?.id ?? null,

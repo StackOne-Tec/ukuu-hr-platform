@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { ensureDemoOrg } from "@/lib/org"
+import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -18,9 +21,14 @@ function makeToken(): string {
 }
 
 /**
- * Mock sign-in endpoint for the demo auth experience.
- * Accepts any syntactically valid email + password (>= 6 chars) and
- * returns a fake session token. Replace with real auth later.
+ * Sign-in for the demo auth experience. Accepts any syntactically valid
+ * email + password (>= 6 chars). Tenant resolution:
+ *   - an email that already has a UserAccount signs into that account's
+ *     organization (company data isolation),
+ *   - an unknown email gets an Admin account on the shared demo tenant so
+ *     the demo workspace stays reachable with any credentials.
+ * A server-side httpOnly session cookie is set so pages and API routes can
+ * scope every query to the signed-in user's organization.
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
@@ -50,10 +58,46 @@ export async function POST(req: Request) {
   await new Promise((r) => setTimeout(r, 550))
 
   const remember = body?.remember === true
-  return NextResponse.json({
-    ok: true,
-    user: { email, name: nameFromEmail(email) },
-    token: makeToken(),
-    session: remember ? "persistent" : "ephemeral",
-  })
+
+  try {
+    const demo = await ensureDemoOrg()
+    let user = await db.userAccount.findUnique({ where: { email } })
+    if (!user) {
+      user = await db.userAccount.create({
+        data: {
+          email,
+          name: nameFromEmail(email),
+          organizationId: demo?.id ?? null,
+          role: "Admin",
+        },
+      })
+    }
+    const organizationId = user.organizationId ?? demo?.id ?? null
+    const sessionToken = organizationId
+      ? await createWebSession({ userId: user.id, organizationId, remember })
+      : null
+
+    const res = NextResponse.json({
+      ok: true,
+      user: { email, name: nameFromEmail(email) },
+      token: makeToken(),
+      session: remember ? "persistent" : "ephemeral",
+      organizationId,
+    })
+    if (sessionToken) {
+      res.cookies.set(SESSION_COOKIE, sessionToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: remember ? SESSION_DAYS * 86400 : undefined,
+      })
+    }
+    return res
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+      { status: 503 }
+    )
+  }
 }
