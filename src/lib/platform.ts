@@ -1,13 +1,13 @@
 /**
- * Deployment platform feature visibility.
+ * Deployment platform configuration.
  *
  * The same codebase is deployed twice on Render:
- *   - admin  → ukuu-hr-admin-portal (full HR console + platform admin + devices + settings/security)
- *   - standard → ukuu-hr-platform (public marketing + auth + the remaining modules)
+ *   - admin  → ukuu-hr-admin-portal (no marketing landing page — starts at /login)
+ *   - standard → ukuu-hr-platform (public marketing landing at /)
  *
- * `NEXT_PUBLIC_PLATFORM` is baked at build time so both the server-side route
- * guard (proxy.ts) and the client-side shell (AdminShell) agree on the set of
- * features visible for the current deployment.
+ * Both deployments serve the full application (console dashboard, modules,
+ * auth). `NEXT_PUBLIC_PLATFORM` is baked at build time and read by the
+ * server (proxy) and the client (shell, auth screens).
  */
 export type Platform = "admin" | "standard";
 
@@ -19,25 +19,3 @@ export const IS_ADMIN_PLATFORM = PLATFORM === "admin";
 /** Where brand/home links should point on this deployment.
  *  The admin portal has no marketing landing — it starts at sign-in. */
 export const HOME_HREF = IS_ADMIN_PLATFORM ? "/login" : "/";
-
-/** Top-level route prefixes that belong to the admin-only feature set. */
-export const ADMIN_ONLY_PREFIXES = [
-  "/dashboard",
-  "/employees",
-  "/attendance",
-  "/leave",
-  "/overtime",
-  "/holidays",
-  "/shifts",
-  "/reports",
-  "/devices",
-  "/settings",
-  "/security",
-  "/super-admin",
-] as const;
-
-export function isAdminOnlyPath(pathname: string): boolean {
-  return ADMIN_ONLY_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
-}

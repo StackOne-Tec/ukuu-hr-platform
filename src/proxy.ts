@@ -1,52 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PLATFORM, isAdminOnlyPath } from "./lib/platform";
+import { PLATFORM } from "./lib/platform";
 
 /**
- * Feature guard per deployment platform.
- *
- * On the standard (non-admin) platform the HR console, platform admin,
- * devices and settings/security modules are not offered: requests to those
- * routes are redirected to the public homepage instead.
+ * Entry routing per deployment.
+ * - admin (ukuu-hr-admin-portal): the marketing landing page is removed,
+ *   so "/" redirects to sign-in. The rest of the app is served normally.
+ * - standard (ukuu-hr-platform): the marketing landing page stays at "/".
  */
 export default function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  if (PLATFORM === "admin") {
-    /* the admin portal has no marketing landing page — start at sign-in */
-    if (pathname === "/") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
-  }
-
-  /* standard (non-admin) platform: block admin-only feature areas */
-  if (isAdminOnlyPath(pathname)) {
+  if (PLATFORM === "admin" && req.nextUrl.pathname === "/") {
     const url = req.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/login";
     url.search = "";
     return NextResponse.redirect(url);
   }
-
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/",
-    "/dashboard/:path*",
-    "/employees/:path*",
-    "/attendance/:path*",
-    "/leave/:path*",
-    "/overtime/:path*",
-    "/holidays/:path*",
-    "/shifts/:path*",
-    "/reports/:path*",
-    "/devices/:path*",
-    "/settings/:path*",
-    "/security/:path*",
-    "/super-admin/:path*",
-  ],
+  matcher: ["/"],
 };
