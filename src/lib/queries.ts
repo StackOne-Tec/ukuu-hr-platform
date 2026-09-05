@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { ensureDemoOrg } from "@/lib/org";
 
 /* All helpers are defensive: if the database is unreachable they return
    empty/default shapes so pages still render. */
@@ -579,6 +580,7 @@ export async function getMessages() {
 
 export async function getSettings() {
   return safe(async () => {
+    await ensureDemoOrg();
     const org = await db.organization.findFirst({ where: { slug: "ukuuhr-demo" } });
     const orgId = org?.id ?? "none";
     const [branches, users, leaveTypes, notifications, licenses, employees, departments, apiKeys] = await Promise.all([
