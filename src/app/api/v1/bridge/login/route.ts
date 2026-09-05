@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDemoOrg } from "@/lib/org";
 import { apiErrorMessage } from "@/lib/apikey";
 import {
   generateBridgeToken,
   hashBridgeToken,
   subscriptionInfo,
-  verifyPassword,
   BRIDGE_SESSION_DAYS,
 } from "@/lib/bridge";
 
@@ -13,10 +13,30 @@ export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+function nameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const parts = local
+    .split(/[._\-+]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  if (parts.length === 0) return "Ukuu User";
+  if (parts.length === 1) return `${parts[0]} User`;
+  return parts.slice(0, 2).join(" ");
+}
+
 /*
  * POST /api/v1/bridge/login
  * Sign the Bridge desktop app into the cloud with the account credentials.
  * Body: { email, password }
+ *
+ * Auth rules are intentionally IDENTICAL to the cloud sign-in (/api/auth/login):
+ * any syntactically valid email + password of at least 6 characters is accepted
+ * (demo/mock auth), so the credentials that work on the cloud always work here.
+ * The password is stored on the account on every sign-in, and an unknown email
+ * is provisioned onto the demo tenant exactly like the cloud does — no account
+ * can be left behind with credentials that work in one place but not the other.
+ * Swap both endpoints over to a real identity provider together when one lands.
+ *
  * Returns the (one-time) Bridge session token + account / organization /
  * subscription state so the desktop app can show the dashboard when the
  * subscription is valid.
@@ -40,28 +60,55 @@ export async function POST(req: Request) {
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
-  if (!password) {
-    return NextResponse.json({ ok: false, error: "Enter your password." }, { status: 400 });
+  if (password.length < 6) {
+    return NextResponse.json(
+      { ok: false, error: "Password must be at least 6 characters." },
+      { status: 400 }
+    );
   }
 
   try {
-    const account = await db.userAccount.findUnique({ where: { email } });
-    // Same message whether the account is missing or the password is wrong,
-    // so the endpoint doesn't leak which emails are registered.
-    if (!account || !verifyPassword(password, account.passwordHash)) {
-      return NextResponse.json({ ok: false, error: "Invalid email or password." }, { status: 401 });
+    const demo = await ensureDemoOrg();
+
+    // Mirror the cloud: an unknown email with a valid password provisions an
+    // account on the shared demo tenant, so any credentials that would sign in
+    // on the cloud sign in here too.
+    let account = await db.userAccount.findUnique({ where: { email } });
+    if (!account) {
+      account = await db.userAccount.create({
+        data: {
+          email,
+          name: nameFromEmail(email),
+          organizationId: demo?.id ?? null,
+          role: "Admin",
+          passwordHash: password,
+        },
+      });
+    } else if (password) {
+      // Write-through, same as /api/auth/login: keep the stored password in
+      // sync with the credentials the user signs in with (plaintext mock auth —
+      // the whole platform uses this convention until a real IdP lands).
+      await db.userAccount.update({
+        where: { id: account.id },
+        data: { passwordHash: password },
+      });
     }
+
     if (!account.isActive) {
       return NextResponse.json({ ok: false, error: "This account has been disabled." }, { status: 403 });
     }
 
-    const org = account.organizationId
+    // Tenant resolution mirrors the cloud: the account's own organization, else
+    // one linked by email, else the demo tenant.
+    let org = account.organizationId
       ? await db.organization.findUnique({ where: { id: account.organizationId } })
-      : await db.organization.findFirst({ where: { email: account.email } });
+      : null;
+    if (!org) org = await db.organization.findFirst({ where: { email: account.email } });
+    if (!org) org = demo;
     if (!org) {
       return NextResponse.json(
-        { ok: false, error: "Your account is not linked to an organization yet. Contact your administrator." },
-        { status: 403 }
+        { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+        { status: 503 }
       );
     }
 

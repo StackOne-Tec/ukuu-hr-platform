@@ -40,30 +40,21 @@ const initial: EmployeeFormData = {
   gender: "", maritalStatus: "", dateOfBirth: "", address: "", emergencyContact: "",
 };
 
-export default function EmployeeForm({ departments, initialData }: { departments: { id: string; name: string }[]; initialData?: Partial<EmployeeFormData> }) {
-  const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<EmployeeFormData>({ ...initial, ...initialData });
-  const set = (k: keyof EmployeeFormData, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
+type FieldProps = {
+  label: string;
+  k: keyof EmployeeFormData;
+  type?: string;
+  options?: { value: string; label: string }[];
+  span?: boolean;
+  form: EmployeeFormData;
+  set: (k: keyof EmployeeFormData, v: string | number) => void;
+};
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const json = await res.json();
-      if (json.ok) router.push(form.id ? `/employees/${form.id}` : `/employees/${json.id}`);
-      else alert(json.error ?? "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const Field = ({ label, k, type = "text", options, span }: { label: string; k: keyof EmployeeFormData; type?: string; options?: { value: string; label: string }[]; span?: boolean }) => (
+/* Defined at module scope (not inside the form component) so its identity is
+   stable across renders — defining it inline makes React remount the inputs on
+   every keystroke, which drops focus after the first character. */
+function Field({ label, k, type = "text", options, span, form, set }: FieldProps) {
+  return (
     <div className="bk-field" style={span ? { gridColumn: "1 / -1" } : undefined}>
       <label className="bk-label">{label}</label>
       {options ? (
@@ -75,6 +66,37 @@ export default function EmployeeForm({ departments, initialData }: { departments
       )}
     </div>
   );
+}
+
+export default function EmployeeForm({ departments, initialData }: { departments: { id: string; name: string }[]; initialData?: Partial<EmployeeFormData> }) {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<EmployeeFormData>({ ...initial, ...initialData });
+  const set = (k: keyof EmployeeFormData, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Failed to save employee. Please try again.");
+        return;
+      }
+      router.push(form.id ? `/employees/${form.id}` : `/employees/${json.id}`);
+    } catch {
+      setError("Unable to connect to the server. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="bk-admin-card">
@@ -94,29 +116,34 @@ export default function EmployeeForm({ departments, initialData }: { departments
         ))}
       </div>
 
+      {error && (
+        <div role="alert" style={{ margin: "16px 24px 0", padding: "12px 14px", borderRadius: 10, color: "#B42318", background: "#FEF3F2", border: "1px solid #FDA29B", fontSize: 13, fontWeight: 600 }}>
+          {error}
+        </div>
+      )}
+
       <div className="bk-admin-card-content">
         {step === 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 18px" }}>
-            <Field label="First Name *" k="firstName" />
-            <Field label="Last Name *" k="lastName" />
-            <Field label="Email *" k="email" type="email" />
-            <Field label="Phone" k="phone" />
-            <Field label="Gender" k="gender" options={[{ value: "", label: "Select…" }, { value: "Female", label: "Female" }, { value: "Male", label: "Male" }]} />
-            <Field label="Marital Status" k="maritalStatus" options={[{ value: "", label: "Select…" }, { value: "Single", label: "Single" }, { value: "Married", label: "Married" }, { value: "Divorced", label: "Divorced" }]} />
-            <Field label="Date of Birth" k="dateOfBirth" type="date" />
-            <Field label="Address" k="address" />
-            <Field label="Emergency Contact" k="emergencyContact" span />
+            <Field label="First Name *" k="firstName" form={form} set={set} />
+            <Field label="Last Name *" k="lastName" form={form} set={set} />
+            <Field label="Email *" k="email" type="email" form={form} set={set} />
+            <Field label="Phone" k="phone" form={form} set={set} />
+            <Field label="Gender" k="gender" options={[{ value: "", label: "Select…" }, { value: "Female", label: "Female" }, { value: "Male", label: "Male" }]} form={form} set={set} />
+            <Field label="Marital Status" k="maritalStatus" options={[{ value: "", label: "Select…" }, { value: "Single", label: "Single" }, { value: "Married", label: "Married" }, { value: "Divorced", label: "Divorced" }]} form={form} set={set} />
+            <Field label="Date of Birth" k="dateOfBirth" type="date" form={form} set={set} />
+            <Field label="Address" k="address" form={form} set={set} />
+            <Field label="Emergency Contact" k="emergencyContact" span form={form} set={set} />
           </div>
         )}
         {step === 1 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 18px" }}>
-            <Field label="Employee Code" k="employeeCode" />
-            <Field label="Position / Job Title *" k="position" />
-            <Field label="Department" k="departmentId" options={[{ value: "", label: "Select…" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} />
-            <Field label="Employment Type" k="employmentType" options={[{ value: "Full-time", label: "Full-time" }, { value: "Part-time", label: "Part-time" }, { value: "Contract", label: "Contract" }]} />
-            <Field label="Status" k="status" options={[{ value: "Active", label: "Active" }, { value: "Probation", label: "Probation" }, { value: "Inactive", label: "Inactive" }]} />
-            <Field label="Hire Date" k="hireDate" type="date" />
-            <Field label="Basic Salary (ZMW)" k="basicSalary" type="number" span />
+            <Field label="Employee Code" k="employeeCode" form={form} set={set} />
+            <Field label="Position / Job Title *" k="position" form={form} set={set} />
+            <Field label="Department" k="departmentId" options={[{ value: "", label: "Select…" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} form={form} set={set} />
+            <Field label="Employment Type" k="employmentType" options={[{ value: "Full-time", label: "Full-time" }, { value: "Part-time", label: "Part-time" }, { value: "Contract", label: "Contract" }]} form={form} set={set} />
+            <Field label="Status" k="status" options={[{ value: "Active", label: "Active" }, { value: "Probation", label: "Probation" }, { value: "Inactive", label: "Inactive" }]} form={form} set={set} />
+            <Field label="Hire Date" k="hireDate" type="date" form={form} set={set} />
           </div>
         )}
       </div>

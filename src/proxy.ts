@@ -25,7 +25,21 @@ export default function proxy(req: NextRequest) {
       url.search = "";
       return NextResponse.redirect(url);
     }
-  } else if (pathname === "/super-admin" || pathname.startsWith("/super-admin/")) {
+    // Workspace sign-ups belong to the public product; the admin console is
+    // an operator area, so its auth surface is sign-in only.
+    if (pathname === "/signup" || pathname.startsWith("/signup/")) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  } else if (
+    pathname === "/super-admin" ||
+    pathname.startsWith("/super-admin/") ||
+    pathname === "/access-codes" ||
+    pathname.startsWith("/access-codes/")
+  ) {
+    // Platform-level pages (tenant lists, coupon pool) are admin-portal only.
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

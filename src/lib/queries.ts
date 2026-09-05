@@ -679,7 +679,7 @@ export async function getPlatformAccountData() {
       db.coupon.findMany({ orderBy: { createdAt: "desc" } }),
       db.attendanceDevice.count(),
     ]);
-    const orgById = new Map(orgs.map((o) => [o.id, o]));
+    const orgById = new Map((orgs as Array<{ id: string; name: string }>).map((o) => [o.id, o]));
     return {
       orgs: orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug ?? "", plan: o.plan, employees: o._count.employees, users: o._count.users })),
       users: users.map((u) => ({
@@ -701,6 +701,8 @@ export async function getPlatformAccountData() {
         expiresAt: iso(c.expiresAt),
         description: c.description ?? "",
         createdAt: iso(c.createdAt),
+        redeemedAt: iso(c.redeemedAt),
+        redeemedByOrgName: c.redeemedByOrgName ?? null,
       })),
       orgCount: orgs.length,
       userCount: users.length,

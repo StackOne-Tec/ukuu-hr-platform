@@ -24,7 +24,7 @@ export default async function AttendancePage() {
 
   return (
     <AdminShell activeKey="attendance">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-attendance">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Time &amp; Attendance · live operations</div>
           <h1 className="bk-admin-h1">Attendance</h1>
@@ -33,7 +33,7 @@ export default async function AttendancePage() {
         <div className="bk-admin-actions">
           <Link href="/attendance/logs" className="bk-btn bk-btn-secondary"><RefreshCw size={16} /> Logs</Link>
           <Link href="/attendance/import" className="bk-btn bk-btn-secondary"><CloudDownload size={16} /> Import Records</Link>
-          <Link href="/clock" className="bk-btn bk-btn-primary"><Timer size={16} /> Clock In / Out</Link>
+          <Link href="/clock" className="bk-btn bk-btn-primary" data-tour="attendance-clock"><Timer size={16} /> Clock In / Out</Link>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ export default async function AttendancePage() {
       </div>
 
       {/* live events strip */}
-      <div className="bk-admin-card" style={{ marginBottom: 24 }}>
+      <div className="bk-admin-card" style={{ marginBottom: 24 }} data-tour="attendance-live">
         <div className="bk-admin-card-header">
           <h3>Live clock events</h3>
           <span className="bk-admin-pill active" style={{ textTransform: "none" }}>● LIVE</span>
@@ -125,7 +125,7 @@ export default async function AttendancePage() {
       )}
 
       {/* today's attendance table */}
-      <div className="bk-admin-card">
+      <div className="bk-admin-card" data-tour="attendance-table">
         <div className="bk-admin-card-header">
           <div>
             <h3>Today&rsquo;s attendance</h3>

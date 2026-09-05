@@ -13,7 +13,7 @@ export default async function SuperAdminPage() {
 
   return (
     <AdminShell activeKey="super-admin">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-super-admin">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Super Admin · platform level</div>
           <h1 className="bk-admin-h1">Platform Admin</h1>
@@ -36,7 +36,7 @@ export default async function SuperAdminPage() {
         ))}
       </div>
 
-      <div className="bk-admin-card">
+      <div className="bk-admin-card" data-tour="super-admin-tenants">
         <div className="bk-admin-card-header">
           <h3>Tenants</h3>
           <span className="bk-admin-pill active" style={{ textTransform: "none" }}><ShieldUser size={12} /> Super Admin scope</span>

@@ -152,7 +152,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
 
   return (
     <AdminShell activeKey="settings">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-settings">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Administration · configuration</div>
           <h1 className="bk-admin-h1">Settings</h1>
@@ -161,7 +161,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
       </div>
 
       {/* tabs */}
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--bk-line)", marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--bk-line)", marginBottom: 20, flexWrap: "wrap" }} data-tour="settings-tabs">
         {TABS.map(([key, label, Icon]) => (
           <button key={key} type="button" onClick={() => setTab(key)} style={{
             padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontFamily: "inherit",

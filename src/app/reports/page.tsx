@@ -46,14 +46,14 @@ export default async function ReportsPage() {
 
   return (
     <AdminShell activeKey="reports">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-reports">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Analytics · FR-010</div>
           <h1 className="bk-admin-h1">Reports</h1>
           <p className="bk-admin-sub">Workforce distribution, attendance health and payroll spend.</p>
         </div>
         <div className="bk-admin-actions">
-          <Link href="/reports/generator" className="bk-btn bk-btn-primary">Report Generator</Link>
+          <Link href="/reports/generator" className="bk-btn bk-btn-primary" data-tour="reports-generator">Report Generator</Link>
         </div>
       </div>
 
@@ -71,7 +71,7 @@ export default async function ReportsPage() {
         ))}
       </div>
 
-      <div className="bk-admin-grid-2-even">
+      <div className="bk-admin-grid-2-even" data-tour="reports-charts">
         <div className="bk-admin-card">
           <div className="bk-admin-card-header"><h3>Department distribution</h3></div>
           <div className="bk-admin-card-content" style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
@@ -107,7 +107,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <div className="bk-admin-card" style={{ marginTop: 24 }}>
+      <div className="bk-admin-card" style={{ marginTop: 24 }} data-tour="reports-payroll">
         <div className="bk-admin-card-header"><h3>Payroll spend by period</h3></div>
         <div className="bk-admin-card-content">
           <div style={{ display: "flex", alignItems: "flex-end", gap: 18, height: 180, padding: "0 8px", borderBottom: "1px solid var(--bk-line)" }}>

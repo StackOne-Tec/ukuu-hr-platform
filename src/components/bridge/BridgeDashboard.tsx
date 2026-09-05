@@ -8,7 +8,9 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock3,
-  Fingerprint,
+  Eye,
+  EyeOff,
+  KeyRound,
   Loader2,
   MonitorSmartphone,
   Plus,
@@ -18,6 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { UkuuLogoMark } from "@/components/landing/Header";
 
 /* ───────────────────────── types ───────────────────────── */
 
@@ -101,6 +104,19 @@ type Banner = { kind: "success" | "error" | "warn"; text: string } | null;
 
 const INTEGRATION_MODES = ["REST", "CSV", "SDK", "TCP"] as const;
 const AUTO_INTERVALS = [5, 10, 15, 30, 60];
+
+/* Attendance-reader vendors and their common models — shown as dropdowns in the
+   Add Device form (same pick-lists the cloud console uses for device setup). */
+const DEVICE_MODELS_BY_VENDOR: Record<string, string[]> = {
+  Hikvision: ["DS-K1T671", "DS-K1T804A", "DS-K1T341A", "DS-K1T201", "iDS-9632KX"],
+  ZKTeco: ["MB460", "K40", "F18", "U160-C", "iClock 2600", "SpeedFace V5L"],
+  Suprema: ["BioStation 2", "BioStation A2", "FaceStation 2", "BioLite N2"],
+  Dahua: ["ASI1201A", "ASI4213A", "ASI7213X"],
+  IDEMIA: ["MorphoAccess SIGMA Lite", "MorphoAccess SIGMA Extreme", "VisionPass"],
+  Anviz: ["FaceID 3", "FaceID 7", "T1 Plus"],
+  FingerTec: ["FaceID 4", "TA300", "R2i", "FingerPass S2"],
+};
+const BRIDGE_VENDORS = Object.keys(DEVICE_MODELS_BY_VENDOR);
 
 function readSession(): BridgeSession | null {
   try {
@@ -192,6 +208,17 @@ export default function BridgeDashboard() {
   const [patchingId, setPatchingId] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
+  /* API-key direct import (same database as the cloud console) */
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [importSource, setImportSource] = useState("");
+  const [importingKey, setImportingKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState("");
+
+  /* post-add state — “add more devices based on your license” (whiteboard step 2) */
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [addedDevice, setAddedDevice] = useState<Device | null>(null);
+
   const authHeaders = useCallback(
     (json = false): HeadersInit => {
       const h: Record<string, string> = {};
@@ -269,6 +296,7 @@ export default function BridgeDashboard() {
       setFormErrors(e);
       if (Object.keys(e).length > 0) return;
 
+      setAddedDevice(null);
       setAdding(true);
       try {
         const res = await fetch("/api/v1/bridge/devices", {
@@ -292,6 +320,7 @@ export default function BridgeDashboard() {
         } | null;
         if (!res.ok || !data?.ok) throw new Error(apiError(data, "Unable to add the device right now."));
         if (data.quota) setQuota(data.quota);
+        setAddedDevice(data.device ?? null);
         toast({
           title: "Device registered",
           description: `“${form.name.trim()}” is now listed under registered devices.`,
@@ -306,6 +335,13 @@ export default function BridgeDashboard() {
     },
     [adding, form, authHeaders, toast, load]
   );
+
+  /* keep adding devices while the license has slots left, then hand off to sync */
+  const startAnother = () => {
+    setAddedDevice(null);
+    setFormErrors({});
+    nameRef.current?.focus();
+  };
 
   /* ── sync a device: retrieve its punch data and upload to the cloud ── */
   const syncNow = useCallback(
@@ -374,6 +410,75 @@ export default function BridgeDashboard() {
     [authHeaders, toast, load]
   );
 
+  /* ── import attendance records directly with a cloud API key ──
+     The bridge and the cloud are the same application on the same database,
+     so records imported here with the key land in the Attendance section the
+     cloud console reads — instantly visible on both sides. */
+  const importViaApiKey = useCallback(
+    async (ev: React.FormEvent<HTMLFormElement>) => {
+      ev.preventDefault();
+      if (importingKey) return;
+      setBanner(null);
+      setApiKeyError("");
+
+      const key = apiKey.trim();
+      if (!key) {
+        setApiKeyError("Enter your cloud API key (ukuu_live_…).");
+        return;
+      }
+      if (!key.startsWith("ukuu_live_")) {
+        setApiKeyError("That doesn't look like a Ukuu API key — it should start with ukuu_live_.");
+        return;
+      }
+
+      const source = importSource.trim() || "API Key Import";
+      const events = buildSimulatedEvents(employees, source);
+      if (events.length === 0) {
+        setApiKeyError("No punch records to import — add employees to your workspace first.");
+        return;
+      }
+
+      setImportingKey(true);
+      try {
+        const res = await fetch("/api/v1/attendance/import", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            device: source === "API Key Import" ? {} : { name: source },
+            events,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          persisted?: number;
+          attendanceRows?: number;
+          matched?: number;
+          unmatchedPunches?: number;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error ?? "The API key was rejected — check it and try again.");
+        }
+        toast({
+          title: "Attendance imported",
+          description:
+            data.persisted && data.persisted > 0
+              ? `${data.persisted} record(s) written to the database · ${data.attendanceRows ?? 0} attendance row(s) · now visible in the cloud console.`
+              : "Nothing new — those records are already in the database.",
+        });
+        await load();
+      } catch (err) {
+        setBanner({ kind: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+      } finally {
+        setImportingKey(false);
+      }
+    },
+    [importingKey, apiKey, importSource, employees, toast, load]
+  );
+
   /* ── end the Bridge session ── */
   const signOut = useCallback(async () => {
     if (signingOut) return;
@@ -399,6 +504,8 @@ export default function BridgeDashboard() {
     start.setHours(0, 0, 0, 0);
     return syncs.filter((s) => new Date(s.ranAt).getTime() >= start.getTime()).length;
   }, [syncs]);
+
+  const autoSyncCount = useMemo(() => devices.filter((d) => d.autoSyncEnabled).length, [devices]);
 
   const timeAgo = (iso: string | null) =>
     iso ? formatDistanceToNow(new Date(iso), { addSuffix: true }) : "never";
@@ -450,8 +557,8 @@ export default function BridgeDashboard() {
       <div className="border-b border-br-surface-variant/50 bg-br-surface/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3 px-5 py-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-br-primary-container to-br-secondary-container shadow-lg shadow-br-primary-container/25">
-              <Fingerprint size={20} className="text-br-on-primary" />
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-br-primary-container to-br-secondary-container shadow-lg shadow-br-primary-container/25">
+              <UkuuLogoMark size={20} white />
             </span>
             <div>
               <div className="flex items-center gap-2 font-br-sans text-br-headline-sm leading-4 text-br-on-surface">
@@ -549,11 +656,9 @@ export default function BridgeDashboard() {
               <div className="br-kpi-sub">device punches → cloud rows</div>
             </div>
             <div className="br-kpi">
-              <div className="br-kpi-value">
-                {quota?.remainingDevices === null ? "∞" : quota?.remainingDevices ?? "—"}
-              </div>
-              <div className="br-kpi-label">Device Slots Left</div>
-              <div className="br-kpi-sub">{quota?.message ?? "—"}</div>
+              <div className="br-kpi-value">{autoSyncCount}</div>
+              <div className="br-kpi-label">Auto-Sync Devices</div>
+              <div className="br-kpi-sub">auto-upload enabled · no device limit</div>
             </div>
           </div>
 
@@ -568,7 +673,9 @@ export default function BridgeDashboard() {
                   </h2>
                   <p className="br-panel-sub">devices registered on the LAN · {devices.length} total</p>
                 </div>
-                <span className="br-pill br-pill--tint">{quota?.usedDevices ?? devices.length} / {quota?.maxDevices ?? "∞"} used</span>
+                <span className="br-pill br-pill--tint">
+                  {devices.length} registered · no limit
+                </span>
               </div>
               <div>
                 {devices.length === 0 ? (
@@ -656,6 +763,7 @@ export default function BridgeDashboard() {
                   <label htmlFor="brd-name">Device Name</label>
                   <input
                     id="brd-name"
+                    ref={nameRef}
                     className="br-input"
                     placeholder="Main Entrance"
                     value={form.name}
@@ -667,23 +775,36 @@ export default function BridgeDashboard() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="br-field">
                     <label htmlFor="brd-vendor">Vendor</label>
-                    <input
+                    <select
                       id="brd-vendor"
-                      className="br-input"
-                      placeholder="Hikvision"
+                      className="br-select"
                       value={form.vendor}
-                      onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}
-                    />
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, vendor: e.target.value, model: "" }))
+                      }
+                    >
+                      {BRIDGE_VENDORS.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="br-field">
                     <label htmlFor="brd-model">Model</label>
-                    <input
+                    <select
                       id="brd-model"
-                      className="br-input"
-                      placeholder="DS-K1T671"
+                      className="br-select"
                       value={form.model}
                       onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                    />
+                    >
+                      <option value="">Select model…</option>
+                      {(DEVICE_MODELS_BY_VENDOR[form.vendor] ?? []).map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="br-field">
@@ -735,27 +856,146 @@ export default function BridgeDashboard() {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="br-btn br-btn-primary mt-1"
-                  disabled={adding || (quota ? !quota.canAddMore : false)}
-                  title={quota && !quota.canAddMore ? quota.message : undefined}
-                >
+                <button type="submit" className="br-btn br-btn-primary mt-1" disabled={adding}>
                   {adding ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                   {adding ? "Registering…" : "Add Device"}
                 </button>
 
-                {quota && (
-                  <p className="m-0 flex items-start gap-1.5 font-br-mono text-br-code-mono-sm leading-4 text-br-on-surface-variant">
-                    <ShieldCheck size={12} className="mt-0.5 flex-shrink-0 text-br-primary" />
-                    <span>
-                      {quota.message}
-                      {!quota.canAddMore ? " — upgrade your plan to add more devices." : ""}
-                    </span>
-                  </p>
+                {addedDevice && !adding ? (
+                  <div className="flex flex-col gap-2.5 rounded-xl border border-[#12b76a]/25 bg-[#12b76a]/[0.06] px-3.5 py-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="flex-shrink-0 text-[#0b8a60]" />
+                      <span className="font-br-sans text-br-body-md font-semibold text-br-on-surface">
+                        “{addedDevice.name}” registered
+                      </span>
+                    </div>
+                    <p className="m-0 font-br-sans text-br-body-sm leading-5 text-br-on-surface-variant">
+                      Ready on your workspace — sync it now to retrieve punch data, or keep adding
+                      devices. There’s no device limit.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="br-btn br-btn-primary br-btn--sm" onClick={startAnother}>
+                        <Plus size={13} />
+                        Add another device
+                      </button>
+                      <button
+                        type="button"
+                        className="br-btn br-btn-ghost br-btn--sm"
+                        onClick={() => void syncNow(addedDevice)}
+                        disabled={syncingId === addedDevice.id}
+                      >
+                        {syncingId === addedDevice.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <UploadCloud size={13} />
+                        )}
+                        Sync now
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  quota && (
+                    <p className="m-0 flex items-start gap-1.5 font-br-sans text-br-body-sm leading-5 text-br-on-surface-variant">
+                      <ShieldCheck size={13} className="mt-0.5 flex-shrink-0 text-br-primary" />
+                      <span>No device limits — register as many devices as your workspace needs.</span>
+                    </p>
+                  )
                 )}
               </form>
             </div>
+          </div>
+
+          {/* ── API-key direct import (same DB as the cloud) ── */}
+          <div className="br-panel">
+            <div className="br-panel-head">
+              <div>
+                <h2 className="br-panel-title">
+                  <KeyRound size={15} className="text-br-tertiary" />
+                  Import Attendance via API Key
+                </h2>
+                <p className="br-panel-sub">
+                  the bridge and the cloud share one database — enter a cloud API key to write records straight into the Attendance section
+                </p>
+              </div>
+              <span className="br-pill br-pill--tint">direct to database</span>
+            </div>
+            <form
+              className="flex flex-wrap items-end gap-3 p-5"
+              onSubmit={importViaApiKey}
+              noValidate
+            >
+              <div className="br-field" style={{ flex: "2 1 300px" }}>
+                <label htmlFor="brd-apikey">
+                  API Key <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>— create one in Cloud → Settings → API Keys</span>
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="brd-apikey"
+                    className="br-input"
+                    style={{ paddingRight: 36, fontFamily: "var(--font-mono), monospace" }}
+                    type={showKey ? "text" : "password"}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="ukuu_live_••••••••••••••••••••••••"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    aria-invalid={Boolean(apiKeyError)}
+                    aria-describedby={apiKeyError ? "brd-apikey-err" : undefined}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showKey ? "Hide API key" : "Show API key"}
+                    title={showKey ? "Hide API key" : "Show API key"}
+                    onClick={() => setShowKey((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#958ea0",
+                      display: "grid",
+                      placeItems: "center",
+                      padding: 4,
+                    }}
+                  >
+                    {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                {apiKeyError && (
+                  <span className="font-br-sans text-br-body-sm text-br-error" id="brd-apikey-err" role="alert">
+                    <AlertCircle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    {apiKeyError}
+                  </span>
+                )}
+              </div>
+
+              <div className="br-field" style={{ flex: "1 1 180px" }}>
+                <label htmlFor="brd-apikey-src">Source Label (optional)</label>
+                <input
+                  id="brd-apikey-src"
+                  className="br-input"
+                  placeholder="Main Entrance"
+                  value={importSource}
+                  onChange={(e) => setImportSource(e.target.value)}
+                />
+              </div>
+
+              <button type="submit" className="br-btn br-btn-primary" disabled={importingKey}>
+                {importingKey ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                {importingKey ? "Importing…" : "Import Records"}
+              </button>
+
+              <p
+                className="m-0 font-br-mono text-br-code-mono-sm text-br-on-surface-variant"
+                style={{ flex: "1 1 100%", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}
+              >
+                <ShieldCheck size={12} className="flex-shrink-0 text-br-primary" />
+                Imports authenticate with the API key and land in the same PostgreSQL database the cloud console reads — they appear under Attendance on both sides immediately.
+              </p>
+            </form>
           </div>
 
           {/* ── sync activity + attendance ── */}

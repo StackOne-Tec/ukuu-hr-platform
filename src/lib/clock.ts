@@ -57,7 +57,7 @@ export async function ingestClockEvents(opts: {
     const employees = await db.employee.findMany({
       where: { organizationId: organizationId ?? "none" },
       select: { id: true, employeeCode: true },
-    });
+    }) as Array<{ id: string; employeeCode: string }>;
     const empByCode = new Map(employees.map((e) => [e.employeeCode, e.id]));
 
     // ── Dedupe against clock events already in the log ──

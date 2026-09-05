@@ -12,7 +12,7 @@ export default async function ShiftsPage() {
     <ShiftsView
       data={shiftRes.data}
       employees={empRes.data.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}`, department: e.department }))}
-      departments={[...new Set(empRes.data.map((e) => e.department))].filter((d) => d !== "—")}
+      departments={(Array.from(new Set(empRes.data.map((e) => e.department))) as string[]).filter((d) => d !== "—")}
     />
   );
 }

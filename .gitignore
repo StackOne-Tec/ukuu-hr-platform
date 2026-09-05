@@ -63,3 +63,5 @@ server.log
 /agent-ctx/
 --full-page
 *.pid
+# admin-mode dev build dir (runs alongside .next)
+/.next-admin/

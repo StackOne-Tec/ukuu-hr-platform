@@ -25,7 +25,7 @@ export default function OvertimeView({ records }: { records: RecordRow[] }) {
 
   return (
     <AdminShell activeKey="overtime">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-overtime">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Overtime · FR-006 / FR-007</div>
           <h1 className="bk-admin-h1">Overtime</h1>
@@ -38,7 +38,7 @@ export default function OvertimeView({ records }: { records: RecordRow[] }) {
       </div>
 
       {/* rate-type cards */}
-      <div className="bk-admin-kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+      <div className="bk-admin-kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }} data-tour="overtime-rates">
         {[
           ["Standard", "1.5x", "Weekday overtime", hoursByRate("Standard"), "#7B2FBE"],
           ["Weekend", "2.0x", "Saturday / Sunday", hoursByRate("Weekend"), "#2563EB"],

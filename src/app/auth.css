@@ -1211,3 +1211,127 @@
     transition: none !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Admin portal auth — a deliberately distinct operator-console identity.
+   Applied via `.au-root--admin` (NEXT_PUBLIC_PLATFORM=admin), so the
+   user portal keeps its original look untouched.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* deep navy console panel instead of the purple HR panel */
+.au-root--admin .au-brand {
+  background: linear-gradient(152deg, #0d1b3e 0%, #132a5c 48%, #0a1128 100%);
+}
+
+.au-root--admin .au-brand::before {
+  background:
+    radial-gradient(880px 620px at 12% 4%, rgba(240, 194, 87, 0.20), transparent 62%),
+    radial-gradient(720px 540px at 90% 90%, rgba(59, 130, 246, 0.18), transparent 60%),
+    radial-gradient(560px 420px at 78% 14%, rgba(123, 47, 190, 0.26), transparent 62%);
+}
+
+/* gold identity accents */
+.au-root--admin .au-eyebrow {
+  color: #f0c257;
+}
+.au-root--admin .au-eyebrow::before {
+  background: linear-gradient(90deg, #f0c257, rgba(240, 194, 87, 0));
+}
+.au-root--admin .au-kicker {
+  color: #b7791f;
+}
+.au-root--admin .au-grad {
+  background: linear-gradient(92deg, #f0c257 4%, #fbbf24 58%, #fde68a 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.au-root--admin .au-logo-sub {
+  color: rgba(240, 194, 87, 0.85);
+}
+.au-root--admin .au-status {
+  color: rgba(240, 194, 87, 0.92);
+}
+.au-root--admin .au-status-dot {
+  background: #f0c257;
+  box-shadow: 0 0 0 3px rgba(240, 194, 87, 0.25);
+}
+
+/* restricted-area chip (brand panel + auth card) */
+.au-restricted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #f0c257;
+  background: rgba(240, 194, 87, 0.1);
+  border: 1px solid rgba(240, 194, 87, 0.32);
+  padding: 6px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.au-root--admin .au-restricted--card {
+  margin-bottom: 14px;
+}
+
+/* console label in the top-right of the admin auth card */
+.au-console-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b7791f;
+}
+.au-dark .au-console-label {
+  color: #f0c257;
+}
+
+/* admin feature-card icon tones */
+.au-ficon--gold {
+  background: rgba(240, 194, 87, 0.16);
+  color: #f0c257;
+  box-shadow: inset 0 0 0 1px rgba(240, 194, 87, 0.32);
+}
+.au-ficon--blue {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.3);
+}
+.au-ficon--green {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  box-shadow: inset 0 0 0 1px rgba(110, 231, 183, 0.3);
+}
+
+/* gold primary action on the admin console */
+.au-root--admin .au-btn-primary {
+  background: linear-gradient(135deg, #f0c257 0%, #dfa814 62%, #c9920b 100%);
+  color: #221403;
+  box-shadow:
+    0 12px 26px -8px rgba(194, 138, 10, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.au-root--admin .au-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow:
+    0 16px 32px -8px rgba(194, 138, 10, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* the admin console defaults to dark — keep the card read on dark too */
+.au-root--admin.au-dark .au-card {
+  background: #101a33;
+  border-color: rgba(240, 194, 87, 0.16);
+}
+.au-root--admin.au-dark .au-card-h {
+  color: #f5f2ff;
+}
+.au-root--admin .au-card {
+  border-color: rgba(59, 130, 246, 0.18);
+}

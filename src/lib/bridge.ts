@@ -88,19 +88,12 @@ export function subscriptionInfo(org: OrgLike, license: LicenseLike): Subscripti
 
 /* ───────────────────────── device quota ───────────────────────── */
 
-/* Plan → max devices a Bridge org may register (null = unlimited). This is
-   what the desktop app's “add more devices based on license” step enforces —
-   adjust here when plans change. */
-const PLAN_DEVICE_LIMITS: Record<string, number | null> = {
-  Trial: 1,
-  Starter: 2,
-  Professional: 10,
-  Enterprise: null, // unlimited
-};
-
-export function deviceLimitForPlan(plan: string): number | null {
-  if (plan in PLAN_DEVICE_LIMITS) return PLAN_DEVICE_LIMITS[plan];
-  return null; // unrecognized plans are never blocked
+/* The Bridge does NOT cap how many attendance devices a workspace may
+   register — the per-plan device limitation was removed so workspaces can add
+   as many devices as they need. deviceQuota still returns unlimited metadata
+   so existing callers (device list, account summary) keep working. */
+export function deviceLimitForPlan(_plan: string): number | null {
+  return null; // unlimited
 }
 
 export type DeviceQuota = {
@@ -113,17 +106,13 @@ export type DeviceQuota = {
 };
 
 export function deviceQuota(plan: string, used: number): DeviceQuota {
-  const max = deviceLimitForPlan(plan);
-  const unlimited = max === null;
   return {
     plan,
-    maxDevices: max,
+    maxDevices: null,
     usedDevices: used,
-    remainingDevices: unlimited ? null : Math.max(0, max - used),
-    canAddMore: unlimited || used < (max as number),
-    message: unlimited
-      ? `${plan} plan — unlimited attendance devices.`
-      : `${plan} plan allows up to ${max} registered device${max === 1 ? "" : "s"}.`,
+    remainingDevices: null,
+    canAddMore: true,
+    message: `${plan} plan — no device limit: register as many devices as you need.`,
   };
 }
 

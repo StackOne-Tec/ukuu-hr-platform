@@ -14,11 +14,12 @@ import {
   Lock,
   Mail,
   Moon,
+  ShieldCheck,
   Sun,
   User,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { HOME_HREF } from "@/lib/platform"
+import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
 import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
 
@@ -63,7 +64,9 @@ export default function AuthExperience() {
   }, [params])
 
   const [mode, setMode] = useState<Mode>(initialMode)
-  const [theme, setTheme] = useState<"light" | "dark">("light")
+  /* the admin console presents itself in dark mode by default — a deliberate,
+     immediately visible difference from the light user-portal sign-in */
+  const [theme, setTheme] = useState<"light" | "dark">(IS_ADMIN_PLATFORM ? "dark" : "light")
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -258,16 +261,23 @@ export default function AuthExperience() {
 
   /* ---------- render ---------- */
   return (
-    <div className={`au-root${theme === "dark" ? " au-dark" : ""}`}>
+    <div className={`au-root${theme === "dark" ? " au-dark" : ""}${IS_ADMIN_PLATFORM ? " au-root--admin" : ""}`}>
       <div className="au-shell">
         <BrandPanel />
 
         <main className="au-main">
           <div className="au-topbar">
-            <a href={HOME_HREF} className="au-back">
-              <ArrowLeft size={16} strokeWidth={2.2} />
-              Back to home
-            </a>
+            {IS_ADMIN_PLATFORM ? (
+              <span className="au-console-label">
+                <ShieldCheck size={15} strokeWidth={2.2} />
+                Platform Console
+              </span>
+            ) : (
+              <a href={HOME_HREF} className="au-back">
+                <ArrowLeft size={16} strokeWidth={2.2} />
+                Back to home
+              </a>
+            )}
             <button
               type="button"
               className="au-theme-btn"
@@ -308,10 +318,25 @@ export default function AuthExperience() {
 
                     {mode === "signin" && (
                       <>
-                        <p className="au-kicker">SIGN IN</p>
-                        <h2 className="au-card-h">Welcome back</h2>
+                        {IS_ADMIN_PLATFORM && (
+                          <span className="au-restricted au-restricted--card">
+                            <ShieldCheck size={12} strokeWidth={2.4} />
+                            Restricted console
+                          </span>
+                        )}
+                        <p className="au-kicker">{IS_ADMIN_PLATFORM ? "ADMIN SIGN IN" : "SIGN IN"}</p>
+                        <h2 className="au-card-h">
+                          {IS_ADMIN_PLATFORM ? "Platform Admin Access" : "Welcome back"}
+                        </h2>
                         <p className="au-card-sub">
-                          Sign in to your Ukuu HR workspace to continue.
+                          {IS_ADMIN_PLATFORM ? (
+                            <>
+                              Authorized administrators only — every sign-in is recorded in the
+                              audit log.
+                            </>
+                          ) : (
+                            "Sign in to your Ukuu HR workspace to continue."
+                          )}
                         </p>
                       </>
                     )}
@@ -329,7 +354,7 @@ export default function AuthExperience() {
 
                     {mode === "forgot" && (
                       <>
-                        <p className="au-kicker">RESET PASSWORD</p>
+                        <p className="au-kicker">{IS_ADMIN_PLATFORM ? "ADMIN RESET PASSWORD" : "RESET PASSWORD"}</p>
                         <h2 className="au-card-h">Forgot your password?</h2>
                         <p className="au-card-sub">
                           Enter your email and we&apos;ll send you a reset link.
@@ -530,7 +555,9 @@ export default function AuthExperience() {
                       ) : (
                         <>
                           {mode === "signin"
-                            ? "Sign In to Dashboard"
+                            ? IS_ADMIN_PLATFORM
+                              ? "Sign In to Admin Console"
+                              : "Sign In to Dashboard"
                             : mode === "signup"
                               ? "Create Account"
                               : "Send Reset Link"}
@@ -558,14 +585,22 @@ export default function AuthExperience() {
                     </button>
 
                     <p className="au-cardfoot">
-                      {mode === "signin" && (
-                        <>
-                          Don&apos;t have an account?
-                          <a className="au-foot-link" href="/signup">
-                            Create an account
-                          </a>
-                        </>
-                      )}
+                      {mode === "signin" &&
+                        (IS_ADMIN_PLATFORM ? (
+                          <>
+                            Workspace access? Sign in through your{" "}
+                            <a className="au-foot-link" href={HOME_HREF}>
+                              workspace portal
+                            </a>
+                          </>
+                        ) : (
+                          <>
+                            Don&apos;t have an account?
+                            <a className="au-foot-link" href="/signup">
+                              Create an account
+                            </a>
+                          </>
+                        ))}
                       {mode === "signup" && (
                         <>
                           Already have an account?

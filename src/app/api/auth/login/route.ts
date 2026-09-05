@@ -69,8 +69,16 @@ export async function POST(req: Request) {
           name: nameFromEmail(email),
           organizationId: demo?.id ?? null,
           role: "Admin",
+          /* store the chosen password so the same credentials also work on the
+             Bridge desktop app (plaintext mock auth — verifyPassword compares
+             directly, matching the rest of the demo) */
+          passwordHash: password,
         },
       })
+    } else if (password) {
+      /* write-through: the Bridge authenticates against this field, so keep it
+         in sync with whatever password the user signs into the cloud with */
+      await db.userAccount.update({ where: { id: user.id }, data: { passwordHash: password } })
     }
     const organizationId = user.organizationId ?? demo?.id ?? null
     const sessionToken = organizationId

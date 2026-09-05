@@ -23,7 +23,7 @@ export default async function SecurityPage() {
 
   return (
     <AdminShell activeKey="security">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-security">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Administration · governance</div>
           <h1 className="bk-admin-h1">Security &amp; Audit</h1>
@@ -32,7 +32,7 @@ export default async function SecurityPage() {
       </div>
 
       <div className="bk-admin-grid-2">
-        <div className="bk-admin-card">
+        <div className="bk-admin-card" data-tour="security-score">
           <div className="bk-admin-card-header">
             <h3>Security score</h3>
             <span className="bk-admin-pill active" style={{ textTransform: "none" }}><ShieldCheck size={12} /> {score}%</span>
@@ -68,7 +68,7 @@ export default async function SecurityPage() {
         </div>
       </div>
 
-      <div className="bk-admin-card" style={{ marginTop: 24 }}>
+      <div className="bk-admin-card" style={{ marginTop: 24 }} data-tour="security-audit">
         <div className="bk-admin-card-header"><h3>Audit log</h3><span className="bk-muted-text">{logs.length} recent events</span></div>
         <table className="bk-admin-table">
           <thead>

@@ -6,7 +6,7 @@ A modern HR management SaaS application built with Next.js, featuring a marketin
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router) + React 19 + TypeScript
 - **Styling**: Tailwind CSS + [shadcn/ui](https://ui.shadcn.com/) components
-- **Data layer**: Prisma ORM with PostgreSQL ([Render PostgreSQL](https://render.com/docs/databases))
+- **Data layer**: direct PostgreSQL access via `pg` ([Render PostgreSQL](https://render.com/docs/databases))
 - **Server state**: TanStack Query
 - **Font**: Plus Jakarta Sans
 
@@ -47,7 +47,7 @@ src/
     dashboard/   # dashboard layout and modules
     ui/          # shadcn/ui primitives
   lib/           # utilities
-prisma/          # database schema
+src/lib/         # database and server utilities
 ```
 
 ## Notes
@@ -58,7 +58,7 @@ Authentication endpoints are mock implementations intended for frontend developm
 
 The app is deployed on [Render](https://render.com) as a Node web service backed by a managed PostgreSQL instance (`ukuuhr-db`, region `oregon`).
 
-- **Build command**: `npm install && npx prisma db push --skip-generate || true && npm run build` (installs deps, syncs the Prisma schema to PostgreSQL, and produces the standalone Next.js server)
+- **Build command**: `npm install && npm run build` (installs dependencies and produces the standalone Next.js server)
 - **Start command**: `node .next/standalone/server.js`
 - **Environment**: `DATABASE_URL` (internal connection string of the Render PostgreSQL instance), `NODE_VERSION`, `HOSTNAME=0.0.0.0`
 - **Health check**: `/api/health`

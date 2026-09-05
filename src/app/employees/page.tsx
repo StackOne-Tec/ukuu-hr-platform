@@ -14,7 +14,25 @@ const AVATAR_CLASS = ["", "green", "blue", "pink", "gold"];
 
 export default async function EmployeesPage() {
   const res = await getEmployees();
-  const employees = res.data;
+  const employees = res.data as Array<{
+    id: string;
+    code: string;
+    firstName: string;
+    lastName: string;
+    department: string;
+    departmentColor: string;
+    position: string;
+    hireDate: string | null;
+    status: string;
+    phone: string;
+    email: string;
+    employmentType: string;
+    salary: number;
+    basicSalary: number;
+    rating: number;
+    nrc: string;
+    tpin: string;
+  }>;
 
   const total = employees.length;
   const active = employees.filter((e) => e.status === "Active").length;
@@ -23,7 +41,7 @@ export default async function EmployeesPage() {
 
   return (
     <AdminShell activeKey="employees">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-employees">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">People · {total} on record</div>
           <h1 className="bk-admin-h1">Employees</h1>
@@ -31,7 +49,7 @@ export default async function EmployeesPage() {
         </div>
         <div className="bk-admin-actions">
           <EmployeeExport rows={employees.map((e) => ({ code: e.code, firstName: e.firstName, lastName: e.lastName, department: e.department, position: e.position, hireDate: e.hireDate, status: e.status }))} />
-          <Link href="/employees/add" className="bk-btn bk-btn-primary"><UserPlus size={16} /> Add Employee</Link>
+          <Link href="/employees/add" className="bk-btn bk-btn-primary" data-tour="employees-add"><UserPlus size={16} /> Add Employee</Link>
         </div>
       </div>
 
@@ -54,7 +72,7 @@ export default async function EmployeesPage() {
       </div>
 
       {/* filter bar */}
-      <div className="bk-admin-card" style={{ marginBottom: 24 }}>
+      <div className="bk-admin-card" style={{ marginBottom: 24 }} data-tour="employees-search">
         <div className="bk-admin-card-content" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <label style={{ flex: 1, minWidth: 240, position: "relative", display: "flex", alignItems: "center" }}>
             <Search size={16} style={{ position: "absolute", left: 12, color: "var(--bk-ink-3)" }} />
@@ -74,7 +92,7 @@ export default async function EmployeesPage() {
       </div>
 
       {/* directory table */}
-      <div className="bk-admin-card">
+      <div className="bk-admin-card" data-tour="employees-table">
         <table className="bk-admin-table">
           <thead>
             <tr>

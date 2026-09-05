@@ -1,76 +1,79 @@
 /* ============================================================
-   UKUU HR — Bridge desktop app · Gateway Login (br-* scope)
-   Dark Material-3 surface palette ported 1:1 from the desktop
-   window design (Geist + JetBrains Mono, macOS window chrome).
+   UKUU HR — Bridge desktop app (br-* scope)
+   Themed to match the non-admin (workspace) cloud console:
+   light lavender page, white cards, deep-purple ink, purple
+   brand accents — same family as the HR dashboard (db-*) and
+   the app shell (bk-*). The desktop-window chrome (titlebar
+   traffic lights, daemon status bar) is kept.
    ============================================================ */
 
 @import "tailwindcss";
 
 @theme inline {
-  --font-br-sans: var(--font-bridge-geist), "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-br-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-br-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-br-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 @theme {
-  /* ── surfaces ── */
-  --color-br-surface-container-lowest: #0d0c1d;
-  --color-br-surface-dim: #121123;
-  --color-br-surface: #121123;
-  --color-br-background: #121123;
-  --color-br-surface-container-low: #1b1a2b;
-  --color-br-surface-container: #1f1e2f;
-  --color-br-surface-container-high: #29283a;
-  --color-br-surface-container-highest: #343346;
-  --color-br-surface-bright: #39374a;
-  --color-br-surface-variant: #343346;
+  /* ── surfaces (light lavender page + white cards, like the cloud console) ── */
+  --color-br-surface-container-lowest: #f6f4fc;
+  --color-br-surface-dim: #ece6f6;
+  --color-br-surface: #ffffff;
+  --color-br-background: #f8f7fe;
+  --color-br-surface-container-low: #f1edfa;
+  --color-br-surface-container: #ece6f6;
+  --color-br-surface-container-high: #e3dbf1;
+  --color-br-surface-container-highest: #d8cdeb;
+  --color-br-surface-bright: #ffffff;
+  --color-br-surface-variant: #ebe2f5;
 
   /* ── text / outline ── */
-  --color-br-on-surface: #e4e0f8;
-  --color-br-on-background: #e4e0f8;
-  --color-br-on-surface-variant: #cbc3d7;
-  --color-br-outline: #958ea0;
-  --color-br-outline-variant: #494454;
+  --color-br-on-surface: #2d1b69;
+  --color-br-on-background: #2d1b69;
+  --color-br-on-surface-variant: #6a5b96;
+  --color-br-outline: #8a86a8;
+  --color-br-outline-variant: #d3c7e8;
 
-  /* ── primary ── */
-  --color-br-primary: #d0bcff;
-  --color-br-on-primary: #3c0091;
-  --color-br-primary-container: #a078ff;
-  --color-br-on-primary-container: #340080;
-  --color-br-primary-fixed: #e9ddff;
-  --color-br-primary-fixed-dim: #d0bcff;
-  --color-br-on-primary-fixed: #23005c;
-  --color-br-on-primary-fixed-variant: #5516be;
-  --color-br-inverse-primary: #6d3bd7;
+  /* ── primary (brand purple) ── */
+  --color-br-primary: #7b2fbe;
+  --color-br-on-primary: #ffffff;
+  --color-br-primary-container: #7b2fbe;
+  --color-br-on-primary-container: #ffffff;
+  --color-br-primary-fixed: #f3e8fd;
+  --color-br-primary-fixed-dim: #d9c2f2;
+  --color-br-on-primary-fixed: #4a1086;
+  --color-br-on-primary-fixed-variant: #5b21b6;
+  --color-br-inverse-primary: #b79ae8;
 
-  /* ── secondary ── */
-  --color-br-secondary: #c0c1ff;
-  --color-br-on-secondary: #1000a9;
-  --color-br-secondary-container: #3131c0;
-  --color-br-on-secondary-container: #b0b2ff;
-  --color-br-secondary-fixed: #e1e0ff;
-  --color-br-secondary-fixed-dim: #c0c1ff;
-  --color-br-on-secondary-fixed: #07006c;
-  --color-br-on-secondary-fixed-variant: #2f2ebe;
+  /* ── secondary (indigo accent) ── */
+  --color-br-secondary: #6c63ff;
+  --color-br-on-secondary: #ffffff;
+  --color-br-secondary-container: #6c63ff;
+  --color-br-on-secondary-container: #ffffff;
+  --color-br-secondary-fixed: #e9e8ff;
+  --color-br-secondary-fixed-dim: #c9c4ff;
+  --color-br-on-secondary-fixed: #221a8f;
+  --color-br-on-secondary-fixed-variant: #4338ca;
 
-  /* ── tertiary ── */
-  --color-br-tertiary: #ddb7ff;
-  --color-br-on-tertiary: #490080;
-  --color-br-tertiary-container: #b76dff;
-  --color-br-on-tertiary-container: #400071;
-  --color-br-tertiary-fixed: #f0dbff;
-  --color-br-tertiary-fixed-dim: #ddb7ff;
-  --color-br-on-tertiary-fixed: #2c0051;
-  --color-br-on-tertiary-fixed-variant: #6900b3;
+  /* ── tertiary (gold accent — warnings / highlights) ── */
+  --color-br-tertiary: #b7791f;
+  --color-br-on-tertiary: #ffffff;
+  --color-br-tertiary-container: #f6ead2;
+  --color-br-on-tertiary-container: #6b4709;
+  --color-br-tertiary-fixed: #fdf3dc;
+  --color-br-tertiary-fixed-dim: #f3e0b5;
+  --color-br-on-tertiary-fixed: #4a3104;
+  --color-br-on-tertiary-fixed-variant: #8a5a0a;
 
-  /* ── error ── */
-  --color-br-error: #ffb4ab;
-  --color-br-on-error: #690005;
-  --color-br-error-container: #93000a;
-  --color-br-on-error-container: #ffdad6;
+  /* ── error (console rose) ── */
+  --color-br-error: #d9506a;
+  --color-br-on-error: #ffffff;
+  --color-br-error-container: #fdecec;
+  --color-br-on-error-container: #a11d3c;
 
   /* ── inverse ── */
-  --color-br-inverse-surface: #e4e0f8;
-  --color-br-inverse-on-surface: #302e41;
+  --color-br-inverse-surface: #2d1b69;
+  --color-br-inverse-on-surface: #f3f0ff;
 
   /* ── typography scale ── */
   --text-br-display-lg: 32px;
@@ -126,12 +129,12 @@
    BRIDGE DESKTOP DASHBOARD (shared with Gateway login)
    ════════════════════════════════════════════════════════════ */
 
-/* --- panels --- */
+/* --- panels (white cards on the lavender page, console style) --- */
 .br-panel {
-  background: rgba(18, 17, 35, 0.86);
-  border: 1px solid rgba(52, 51, 70, 0.7);
-  border-radius: 0.5rem;
-  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #ebe2f5;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04);
   min-width: 0;
 }
 .br-panel-head {
@@ -139,13 +142,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(52, 51, 70, 0.6);
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1ecfa;
 }
 .br-panel-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--color-br-on-surface);
   display: flex;
@@ -153,11 +156,11 @@
   gap: 9px;
 }
 .br-panel-sub {
-  margin: 2px 0 0;
-  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--color-br-on-surface-variant);
+  margin: 3px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-br-outline);
 }
 
 /* --- KPI cards --- */
@@ -165,32 +168,30 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: rgba(18, 17, 35, 0.86);
-  border: 1px solid rgba(52, 51, 70, 0.7);
-  border-radius: 0.5rem;
-  padding: 14px 18px;
-  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #ebe2f5;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04);
   min-width: 0;
 }
 .br-kpi-value {
-  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
-  font-size: 26px;
+  font-size: 27px;
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-br-on-surface);
 }
 .br-kpi-label {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-br-on-surface-variant);
+  color: var(--color-br-outline);
 }
 .br-kpi-sub {
-  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
   color: var(--color-br-outline);
 }
 
@@ -198,20 +199,20 @@
 .br-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--color-br-on-surface-variant);
 }
 .br-input,
 .br-select {
   width: 100%;
-  background: #0d0c1d;
-  border: 1px solid #343346;
-  border-radius: 0.25rem;
-  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #e6ddf3;
+  border-radius: 10px;
+  padding: 8px 11px;
   font: inherit;
   font-size: 13px;
   color: var(--color-br-on-surface);
@@ -219,21 +220,21 @@
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 .br-input::placeholder {
-  color: #958ea0;
+  color: #9a94b5;
 }
 .br-input:focus,
 .br-select:focus {
-  border-color: #a078ff;
-  background: #1b1a2b;
-  box-shadow: 0 0 0 3px rgba(160, 120, 255, 0.14);
+  border-color: #b79ae8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(123, 47, 190, 0.1);
 }
 .br-select {
   appearance: none;
   -webkit-appearance: none;
-  padding-right: 26px;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23958ea0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a86a8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 9px center;
   background-size: 12px;
   cursor: pointer;
 }
@@ -244,7 +245,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border-radius: 0.25rem;
+  border-radius: 10px;
   padding: 8px 14px;
   font: inherit;
   font-size: 13px;
@@ -262,33 +263,33 @@
   cursor: not-allowed;
 }
 .br-btn--sm {
-  padding: 5px 10px;
+  padding: 5px 11px;
   font-size: 12px;
 }
 .br-btn-primary {
-  background: linear-gradient(90deg, #a078ff, #a078ff 55%, #3131c0);
-  color: #3c0091;
-  box-shadow: 0 8px 20px -8px rgba(160, 120, 255, 0.4);
+  background: linear-gradient(180deg, #7c3abe 0%, #672da9 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -8px rgba(96, 44, 166, 0.5);
 }
 .br-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
 }
 .br-btn-ghost {
-  background: transparent;
-  border-color: #343346;
+  background: #ffffff;
+  border-color: #e3dcf0;
   color: var(--color-br-on-surface);
 }
 .br-btn-ghost:hover:not(:disabled) {
-  background: #1b1a2b;
-  border-color: #494454;
+  background: #faf9fe;
+  border-color: #cfc3e6;
 }
 .br-btn-danger {
-  background: rgba(147, 0, 10, 0.22);
-  border-color: rgba(255, 180, 171, 0.25);
-  color: #ffb4ab;
+  background: #fbebee;
+  border-color: rgba(217, 80, 106, 0.28);
+  color: #c22f49;
 }
 .br-btn-danger:hover:not(:disabled) {
-  background: rgba(147, 0, 10, 0.38);
+  background: #f7dde2;
 }
 
 /* --- pills --- */
@@ -296,43 +297,42 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 .br-pill--ok {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #0b8a60;
+  background: rgba(18, 183, 106, 0.1);
+  border: 1px solid rgba(18, 183, 106, 0.3);
 }
 .br-pill--warn {
-  color: #ddb7ff;
-  background: rgba(221, 183, 255, 0.1);
-  border: 1px solid rgba(221, 183, 255, 0.28);
+  color: #a16207;
+  background: rgba(216, 156, 17, 0.12);
+  border: 1px solid rgba(216, 156, 17, 0.32);
 }
 .br-pill--err {
-  color: #ffb4ab;
-  background: rgba(255, 180, 171, 0.1);
-  border: 1px solid rgba(255, 180, 171, 0.28);
+  color: #c22f49;
+  background: rgba(217, 80, 106, 0.1);
+  border: 1px solid rgba(217, 80, 106, 0.28);
 }
 .br-pill--auto {
-  color: #c0c1ff;
-  background: rgba(49, 49, 192, 0.35);
-  border: 1px solid rgba(192, 193, 255, 0.3);
+  color: #4338ca;
+  background: rgba(108, 99, 255, 0.09);
+  border: 1px solid rgba(108, 99, 255, 0.26);
 }
 .br-pill--tint {
-  color: #d0bcff;
-  background: rgba(208, 188, 255, 0.1);
-  border: 1px solid rgba(208, 188, 255, 0.25);
+  color: #7b2fbe;
+  background: rgba(123, 47, 190, 0.08);
+  border: 1px solid rgba(123, 47, 190, 0.22);
 }
 .br-pill--muted {
-  color: #cbc3d7;
-  background: rgba(203, 195, 215, 0.08);
-  border: 1px solid rgba(203, 195, 215, 0.18);
+  color: #8a86a8;
+  background: rgba(138, 134, 168, 0.08);
+  border: 1px solid rgba(138, 134, 168, 0.18);
 }
 
 /* --- status dot --- */
@@ -343,16 +343,16 @@
   flex: 0 0 auto;
 }
 .br-dot--online {
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  background: #12b76a;
+  box-shadow: 0 0 0 3px rgba(18, 183, 106, 0.18);
 }
 .br-dot--offline {
-  background: #958ea0;
-  box-shadow: 0 0 0 3px rgba(149, 142, 160, 0.15);
+  background: #a09ac0;
+  box-shadow: 0 0 0 3px rgba(138, 134, 168, 0.15);
 }
 .br-dot--error {
-  background: #ffb4ab;
-  box-shadow: 0 0 0 3px rgba(255, 180, 171, 0.18);
+  background: #d9506a;
+  box-shadow: 0 0 0 3px rgba(217, 80, 106, 0.18);
 }
 
 /* --- device rows --- */
@@ -360,8 +360,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid rgba(52, 51, 70, 0.45);
+  padding: 12px 20px;
+  border-bottom: 1px solid #f3eefb;
 }
 .br-dev-row:last-child {
   border-bottom: 0;
@@ -373,8 +373,8 @@
   width: 34px;
   height: 19px;
   border-radius: 999px;
-  border: 1px solid #494454;
-  background: #0d0c1d;
+  border: 1px solid #d3c6e6;
+  background: #ffffff;
   cursor: pointer;
   padding: 0;
   flex: 0 0 auto;
@@ -388,16 +388,16 @@
   width: 13px;
   height: 13px;
   border-radius: 999px;
-  background: #958ea0;
+  background: #a89ac9;
   transition: transform 0.18s ease, background 0.18s ease;
 }
 .br-switch--on {
-  background: #3131c0;
-  border-color: #3131c0;
+  background: #672da9;
+  border-color: #672da9;
 }
 .br-switch--on::after {
   transform: translateX(15px);
-  background: #c0c1ff;
+  background: #ffffff;
 }
 
 /* --- tables --- */
@@ -407,20 +407,20 @@
 }
 .br-table th {
   text-align: left;
-  padding: 10px 16px;
-  font-size: 10px;
-  font-weight: 600;
+  padding: 10px 18px;
+  font-size: 10.5px;
+  font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #958ea0;
-  border-bottom: 1px solid rgba(52, 51, 70, 0.7);
+  color: #8a86a8;
+  border-bottom: 1px solid #e9e2f5;
   white-space: nowrap;
 }
 .br-table td {
-  padding: 10px 16px;
+  padding: 10px 18px;
   font-size: 13px;
   color: var(--color-br-on-surface);
-  border-bottom: 1px solid rgba(52, 51, 70, 0.4);
+  border-bottom: 1px solid #f3eefb;
   white-space: nowrap;
 }
 .br-table tbody tr:last-child td {
@@ -432,8 +432,8 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 11px 18px;
-  border-bottom: 1px solid rgba(52, 51, 70, 0.45);
+  padding: 11px 20px;
+  border-bottom: 1px solid #f3eefb;
 }
 .br-sync-row:last-child {
   border-bottom: 0;
@@ -441,8 +441,38 @@
 
 /* --- empty state --- */
 .br-empty {
-  padding: 26px 18px;
+  padding: 28px 20px;
   text-align: center;
-  font-size: 12.5px;
-  color: #958ea0;
+  font-size: 13px;
+  color: #8a86a8;
+}
+
+/* ════════════════════════════════════════════════════════════
+   GATEWAY LOGIN — brand lockup on the light cloud-style card
+   ════════════════════════════════════════════════════════════ */
+
+/* The cloud sign-in lockup normally sits on the dark brand panel; here it
+   crowns the white card, so recolor it for the light surface. */
+.br-root .au-logo {
+  color: #14101f;
+}
+.br-root .au-logo-badge {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border-color: rgba(255, 255, 255, 0);
+  box-shadow:
+    0 6px 14px -6px rgba(109, 40, 217, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.br-root .au-logo-name {
+  color: #14101f;
+}
+.br-root .au-logo-sub {
+  color: #6d28d9;
+}
+.br-root .au-status {
+  color: #6a5b96;
+}
+.br-root .au-status-dot {
+  background: #12b76a;
+  box-shadow: 0 0 0 3px rgba(18, 183, 106, 0.16);
 }

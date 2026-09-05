@@ -19,7 +19,7 @@ export default async function DevicesPage() {
 
   return (
     <AdminShell activeKey="devices">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-devices">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">FR-001 · Third-party device integration</div>
           <h1 className="bk-admin-h1">Devices</h1>
@@ -27,12 +27,12 @@ export default async function DevicesPage() {
         </div>
         <div className="bk-admin-actions">
           <Link href="/devices/diagnostics" className="bk-btn bk-btn-secondary"><FlaskConical size={16} /> Diagnostics</Link>
-          <Link href="/devices/add" className="bk-btn bk-btn-primary"><Plus size={16} /> Add Device</Link>
+          <Link href="/devices/add" className="bk-btn bk-btn-primary" data-tour="devices-add"><Plus size={16} /> Add Device</Link>
         </div>
       </div>
 
       {/* vendor matrix */}
-      <div className="bk-admin-card" style={{ marginBottom: 24 }}>
+      <div className="bk-admin-card" style={{ marginBottom: 24 }} data-tour="devices-vendors">
         <div className="bk-admin-card-header"><h3>Vendor support matrix</h3></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, padding: 20 }}>
           {VENDORS.map((v) => {
@@ -47,7 +47,7 @@ export default async function DevicesPage() {
         </div>
       </div>
 
-      <div className="bk-admin-card">
+      <div className="bk-admin-card" data-tour="devices-table">
         <div className="bk-admin-card-header"><h3>Registered devices</h3></div>
         <table className="bk-admin-table">
           <thead>
