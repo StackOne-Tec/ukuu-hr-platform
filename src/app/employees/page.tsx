@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
+import EmployeeExport from "@/components/employees/EmployeeExport";
 import { getEmployees } from "@/lib/queries";
-import { Users, Search, UserPlus, Download } from "lucide-react";
+import { Users, Search, UserPlus } from "lucide-react";
 
 export const metadata: Metadata = { title: "Employees · Ukuu HR" };
 
@@ -29,7 +30,7 @@ export default async function EmployeesPage() {
           <p className="bk-admin-sub">Search, filter and manage your workforce directory.</p>
         </div>
         <div className="bk-admin-actions">
-          <button type="button" className="bk-btn bk-btn-secondary"><Download size={16} /> Export</button>
+          <EmployeeExport rows={employees.map((e) => ({ code: e.code, firstName: e.firstName, lastName: e.lastName, department: e.department, position: e.position, hireDate: e.hireDate, status: e.status }))} />
           <Link href="/employees/add" className="bk-btn bk-btn-primary"><UserPlus size={16} /> Add Employee</Link>
         </div>
       </div>

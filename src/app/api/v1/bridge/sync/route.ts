@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiErrorMessage } from "@/lib/apikey";
+import { createNotification } from "@/lib/notify";
 import { ingestClockEvents, type ClockEventInput } from "@/lib/clock";
 import { bridgeGuard } from "../guard";
 
@@ -139,6 +140,15 @@ export async function POST(req: Request) {
           },
         })
         .catch(() => {});
+    }
+
+    if (!ingested.dbUnreachable && ingested.unmatchedPunches > 0) {
+      // Synchronisation error worth flagging to administrators (FRS: notify on sync errors).
+      await createNotification({
+        organizationId: ctx.organizationId,
+        title: "Device sync warning",
+        message: `${device.name}: ${ingested.unmatchedPunches} punch(es) could not be matched to an employee record.`,
+      });
     }
 
     return NextResponse.json({

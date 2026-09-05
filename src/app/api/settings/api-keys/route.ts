@@ -65,6 +65,18 @@ export async function POST(req: Request) {
         scopes,
       },
     });
+    await db.auditLog
+      .create({
+        data: {
+          organizationId: id,
+          userName: "Administrator",
+          action: "ApiKey.Create",
+          entityType: "ApiKey",
+          entityId: created.id,
+          details: `${name} (scopes: ${scopes})`,
+        },
+      })
+      .catch(() => {});
     return NextResponse.json({
       ok: true,
       id: created.id,
