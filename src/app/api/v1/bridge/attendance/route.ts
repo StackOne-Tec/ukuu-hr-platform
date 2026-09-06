@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
 import { apiErrorMessage } from "@/lib/apikey";
 import { bridgeGuard } from "../guard";
 
@@ -40,7 +39,7 @@ export async function GET(req: Request) {
     const start = dayStart(from);
     const end = new Date(Math.max(to.getTime(), start.getTime()) + DAY_MS);
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where: Record<string, unknown> = {
       organizationId: ctx.organizationId,
       date: { gte: start, lt: end },
     };
@@ -63,11 +62,11 @@ export async function GET(req: Request) {
         where,
         orderBy: [{ date: "desc" }, { employeeId: "asc" }],
         take: 500,
-      }),
+      }) as Promise<Array<Record<string, any>>>,
       db.employee.findMany({
         where: { organizationId: ctx.organizationId },
         select: { id: true, employeeCode: true, firstName: true, lastName: true },
-      }),
+      }) as Promise<Array<Record<string, any>>>,
     ]);
     const empById = new Map(employees.map((e) => [e.id, e]));
 

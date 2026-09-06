@@ -10,9 +10,9 @@ const DEVICE_STATUSES = ["Online", "Offline", "Error"] as const;
 const INTEGRATION_MODES = ["REST", "CSV", "SDK", "TCP"] as const;
 const IP_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-/* GET /api/v1/bridge/devices — the devices already added for the org, plus
-   the license device quota so the desktop “add device” form knows how many
-   more it may register. */
+/* GET /api/v1/bridge/devices — the devices already added for the org. The
+   quota is reported as unlimited: the Bridge no longer caps how many devices
+   a workspace may register. */
 export async function GET(req: Request) {
   try {
     const g = await bridgeGuard(req);
@@ -41,9 +41,8 @@ export async function GET(req: Request) {
 
 /* POST /api/v1/bridge/devices — register a new attendance device found on the
    LAN by the desktop app. Fields match the desktop “Add device” form: name,
-   vendor, model, IP address, integration mode, sync interval. The per-plan
-   license cap is enforced and the refreshed quota is returned so the UI can
-   keep offering “add another device” while the license allows it. */
+   vendor, model, IP address, integration mode, sync interval. Registration is
+   unlimited — there is no per-plan device cap. */
 export async function POST(req: Request) {
   try {
     const g = await bridgeGuard(req);
@@ -96,19 +95,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // License-based device cap (“add more devices based on license”).
     const used = await db.attendanceDevice.count({ where: { organizationId: ctx.organizationId } });
-    const quota = deviceQuota(ctx.subscription.plan, used);
-    if (!quota.canAddMore) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: quota.message + " Upgrade your plan to add more devices.",
-          quota,
-        },
-        { status: 403 }
-      );
-    }
 
     const created = await db.attendanceDevice.create({
       data: {

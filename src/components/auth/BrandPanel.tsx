@@ -1,9 +1,10 @@
 "use client"
 
-import { Users, Fingerprint, CalendarClock } from "lucide-react"
-import { HOME_HREF } from "@/lib/platform"
+import { Users, Fingerprint, CalendarClock, TicketPercent, Building2, ShieldCheck } from "lucide-react"
+import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
 import { UkuuLogoMark } from "@/components/landing/Header"
 
+/* ── user portal (standard deployment) ── */
 const FEATURES = [
   {
     icon: Users,
@@ -25,6 +26,28 @@ const FEATURES = [
   },
 ] as const
 
+/* ── admin portal (operator console) ── */
+const ADMIN_FEATURES = [
+  {
+    icon: TicketPercent,
+    tone: "gold",
+    title: "Access Codes & Subscriptions",
+    desc: "Issue single-use codes that unlock workspaces and plans.",
+  },
+  {
+    icon: Building2,
+    tone: "blue",
+    title: "Tenant Oversight",
+    desc: "Every organization, user and device across the platform.",
+  },
+  {
+    icon: ShieldCheck,
+    tone: "green",
+    title: "Security & Audit",
+    desc: "Restricted console with a full audit trail of every action.",
+  },
+] as const
+
 /** Scattered sparkle positions on the dark brand panel (percent-based). */
 const SPARKS = [
   { left: "7%", top: "22%", size: 2.5, delay: "0s" },
@@ -41,20 +64,25 @@ const SPARKS = [
 
 export function BrandLogo() {
   return (
-    <a href={HOME_HREF} className="au-logo" aria-label="Ukuu HR home">
+    <a href={HOME_HREF} className="au-logo" aria-label={IS_ADMIN_PLATFORM ? "Ukuu platform admin home" : "Ukuu HR home"}>
       <span className="au-logo-badge">
         <UkuuLogoMark size={26} white />
       </span>
       <span>
-        <span className="au-logo-name">UKUU HR</span>
-        <span className="au-logo-sub">HRMS Platform</span>
+        <span className="au-logo-name">{IS_ADMIN_PLATFORM ? "UKUU PLATFORM" : "UKUU HR"}</span>
+        <span className="au-logo-sub">{IS_ADMIN_PLATFORM ? "Admin Console" : "HRMS Platform"}</span>
       </span>
     </a>
   )
 }
 
 export function StatusBadge() {
-  return (
+  return IS_ADMIN_PLATFORM ? (
+    <span className="au-status">
+      <span className="au-status-dot" />
+      Platform operations
+    </span>
+  ) : (
     <span className="au-status">
       <span className="au-status-dot" />
       All systems operational
@@ -62,10 +90,15 @@ export function StatusBadge() {
   )
 }
 
-/** Left dark-purple branding panel of the auth experience. */
+/** Left brand panel of the auth experience — distinct per deployment. */
 export function BrandPanel() {
+  const features = IS_ADMIN_PLATFORM ? ADMIN_FEATURES : FEATURES
+
   return (
-    <aside className="au-brand" aria-label="Ukuu HR platform highlights">
+    <aside
+      className={`au-brand${IS_ADMIN_PLATFORM ? " au-brand--admin" : ""}`}
+      aria-label={IS_ADMIN_PLATFORM ? "Ukuu platform administration" : "Ukuu HR platform highlights"}
+    >
       {SPARKS.map((s, i) => (
         <span
           key={i}
@@ -82,24 +115,48 @@ export function BrandPanel() {
 
       <div className="au-brand-top">
         <BrandLogo />
-        <StatusBadge />
+        {IS_ADMIN_PLATFORM ? (
+          <span className="au-restricted">
+            <ShieldCheck size={12} strokeWidth={2.4} />
+            Restricted area
+          </span>
+        ) : (
+          <StatusBadge />
+        )}
       </div>
 
       <div className="au-brand-mid">
-        <p className="au-eyebrow">REMOTE HR PLATFORM • AFRICA</p>
+        <p className="au-eyebrow">
+          {IS_ADMIN_PLATFORM ? "PLATFORM ADMINISTRATION • OPERATIONS" : "REMOTE HR PLATFORM • AFRICA"}
+        </p>
         <h1 className="au-headline">
-          Welcome back to your <span className="au-grad">workforce</span> command
-          center.
+          {IS_ADMIN_PLATFORM ? (
+            <>
+              The <span className="au-grad">operator console</span> behind every Ukuu workspace.
+            </>
+          ) : (
+            <>
+              Welcome back to your <span className="au-grad">workforce</span> command center.
+            </>
+          )}
         </h1>
         <p className="au-sub">
-          Sign in to manage employees, run country-compliant payroll, approve
-          leave, and track attendance — all from one focused HR platform built
-          for African businesses.
+          {IS_ADMIN_PLATFORM ? (
+            <>
+              Authorized platform administrators only. Issue access codes, oversee every tenant,
+              and monitor platform security — every sign-in is recorded in the audit log.
+            </>
+          ) : (
+            <>
+              Sign in to manage employees, run country-compliant payroll, approve leave, and
+              track attendance — all from one focused HR platform built for African businesses.
+            </>
+          )}
         </p>
       </div>
 
       <div className="au-cards">
-        {FEATURES.map((f) => (
+        {features.map((f) => (
           <div key={f.title} className="au-fcard">
             <span className={`au-ficon au-ficon--${f.tone}`}>
               <f.icon size={19} strokeWidth={1.9} />

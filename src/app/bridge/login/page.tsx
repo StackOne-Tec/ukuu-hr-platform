@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import BridgeLogin from "@/components/bridge/BridgeLogin";
 import "../../bridge.css";
+/* the sign-in card reuses the cloud application's auth styling (au-*) so the
+   bridge and the cloud share the same look, fields and credentials */
+import "../../auth.css";
 
 const geist = Geist({
   variable: "--font-bridge-geist",

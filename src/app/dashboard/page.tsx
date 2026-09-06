@@ -33,7 +33,7 @@ export default async function DashboardPage() {
 
   return (
     <AdminShell activeKey="dashboard">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-dashboard">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">
             {(() => {
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI row */}
-      <div className="bk-admin-kpi-grid">
+      <div className="bk-admin-kpi-grid" data-tour="dashboard-kpis">
         {[
           { icon: Users, tint: "blue", value: String(d.totalEmployees), label: "Total Employees", sub: `${d.activeEmployees} active · ${d.onProbation} on probation`, delta: { tone: "up", text: "+12%" } },
           { icon: CircleCheck, tint: "green", value: `${d.attendancePct}%`, label: "Attendance Today", sub: `${d.presentToday} present · ${d.lateToday} late · ${d.onLeaveToday} on leave`, delta: { tone: "up", text: "+4%" } },
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* overtime pending approval */}
-      <div className="bk-admin-card">
+      <div className="bk-admin-card" data-tour="dashboard-pending">
         <div className="bk-admin-card-header">
           <div>
             <h3>Overtime Pending Approval</h3>

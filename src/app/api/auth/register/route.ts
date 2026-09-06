@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
+import { sendEmail, welcomeEmailHtml } from "@/lib/email"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -92,11 +93,15 @@ export async function POST(req: Request) {
     let userId: string | null = null
 
     const existingUser = await db.userAccount.findUnique({ where: { email } })
-    if (existingUser?.organizationId) {
-      // Returning user — sign into their existing (isolated) tenant.
-      organizationId = existingUser.organizationId
-      userId = existingUser.id
-    } else {
+    if (existingUser) {
+      // Registration must never hand out a session or overwrite the password
+      // of an existing account — they must sign in with that account's password.
+      return NextResponse.json(
+        { ok: false, error: "An account with this email already exists — sign in instead." },
+        { status: 409 }
+      )
+    }
+    {
       // New signup — provision a brand-new, isolated organization.
       let slug = workspace.replace(/\.ukuuhr\.app$/, "")
       let suffix = 1
@@ -119,6 +124,9 @@ export async function POST(req: Request) {
           name,
           email,
           role: "Admin",
+          /* same credentials work on the Bridge desktop app (plaintext mock
+             auth — verifyPassword compares directly) */
+          passwordHash: password,
         },
       })
       organizationId = org.id
@@ -147,6 +155,9 @@ export async function POST(req: Request) {
         maxAge: SESSION_DAYS * 86400,
       })
     }
+
+    // Welcome email (fire-and-forget — never fail registration because of email).
+    void sendEmail(email, "Welcome to Ukuu HR 🎉", welcomeEmailHtml(name, workspace))
     return res
   } catch {
     return NextResponse.json(

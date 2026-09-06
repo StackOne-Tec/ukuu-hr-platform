@@ -107,7 +107,7 @@ export function scopeAllows(scopes: string, resource: string): boolean {
 }
 
 /* Friendly user-facing message for an unexpected API failure. Never leak raw
-   Prisma/engine internals (stack traces with turbopack paths, connection
+   database driver internals (stack traces with turbopack paths, connection
    errors, etc.) to callers. */
 export function apiErrorMessage(e: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!(e instanceof Error)) return fallback;

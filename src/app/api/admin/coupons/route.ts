@@ -11,7 +11,7 @@ const CODE_RE = /^[A-Z0-9][A-Z0-9-]{1,39}$/;
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     code?: unknown;
-    discountPercent?: unknown;
+    months?: unknown;
     plan?: unknown;
     status?: unknown;
     expiresAt?: unknown;
@@ -19,22 +19,18 @@ export async function POST(req: Request) {
   } | null;
 
   const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
-  const discountPercent =
-    typeof body?.discountPercent === "number"
-      ? Math.round(body.discountPercent)
-      : typeof body?.discountPercent === "string"
-        ? Number.parseInt(body.discountPercent, 10)
-        : NaN;
+  const months =
+    typeof body?.months === "number"
+      ? Math.round(body.months)
+      : typeof body?.months === "string" && body.months.trim() !== ""
+        ? Number.parseInt(body.months, 10)
+        : null;
   const plan =
     typeof body?.plan === "string" && body.plan.trim() ? body.plan.trim() : null;
   const status =
     typeof body?.status === "string" && ["Active", "Disabled"].includes(body.status)
       ? body.status
       : "Active";
-  const expiresAt =
-    typeof body?.expiresAt === "string" && body.expiresAt
-      ? new Date(body.expiresAt)
-      : null;
   const description =
     typeof body?.description === "string" && body.description.trim()
       ? body.description.trim()
@@ -46,11 +42,30 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  if (!Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > 100) {
-    return NextResponse.json({ error: "Discount must be a whole number between 0 and 100." }, { status: 400 });
+  if (months !== null && (!Number.isInteger(months) || months < 1 || months > 120)) {
+    return NextResponse.json(
+      { error: "Duration must be a whole number of months between 1 and 120." },
+      { status: 400 }
+    );
   }
-  if (expiresAt && Number.isNaN(expiresAt.getTime())) {
-    return NextResponse.json({ error: "Enter a valid expiry date." }, { status: 400 });
+
+  /* Workspaces never pay inside Ukuu HR: redeeming an access code always
+     covers the full subscription (100% discount). The chosen duration
+     determines how long the unlocked subscription lasts. */
+  const discountPercent = 100;
+  let expiresAt: Date | null = null;
+  if (months !== null) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    expiresAt = d;
+  }
+  // Legacy clients may still send an explicit date instead of a duration.
+  if (!expiresAt && typeof body?.expiresAt === "string" && body.expiresAt) {
+    const parsed = new Date(body.expiresAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json({ error: "Enter a valid expiry date." }, { status: 400 });
+    }
+    expiresAt = parsed;
   }
 
   try {

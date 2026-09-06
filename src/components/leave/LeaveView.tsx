@@ -45,7 +45,7 @@ export default function LeaveView({ requests, types, holidays }: { requests: Lea
 
   return (
     <AdminShell activeKey="leave">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-leave">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Leave · approval workflow</div>
           <h1 className="bk-admin-h1">Leave Management</h1>
@@ -58,7 +58,7 @@ export default function LeaveView({ requests, types, holidays }: { requests: Lea
       </div>
 
       {/* leave types */}
-      <div className="bk-admin-kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+      <div className="bk-admin-kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }} data-tour="leave-types">
         {types.map((t) => (
           <div key={t.id} className="bk-admin-kpi-card">
             <div className="bk-admin-kpi-card-top"><span className="bk-dot" style={{ background: t.color, width: 12, height: 12 }} /></div>

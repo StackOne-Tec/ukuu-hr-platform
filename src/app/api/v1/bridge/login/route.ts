@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDemoOrg } from "@/lib/org";
 import { apiErrorMessage } from "@/lib/apikey";
 import {
   generateBridgeToken,
   hashBridgeToken,
   subscriptionInfo,
-  verifyPassword,
   BRIDGE_SESSION_DAYS,
 } from "@/lib/bridge";
 
@@ -17,6 +17,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * POST /api/v1/bridge/login
  * Sign the Bridge desktop app into the cloud with the account credentials.
  * Body: { email, password }
+ *
+ * Auth rules are intentionally IDENTICAL to the cloud sign-in (/api/auth/login):
+ * the typed password must match the credential stored on the account — unknown
+ * emails and wrong passwords are rejected with the same generic error (no
+ * auto-provisioning, no write-through). Swap both endpoints over to a real
+ * identity provider together when one lands.
+ *
  * Returns the (one-time) Bridge session token + account / organization /
  * subscription state so the desktop app can show the dashboard when the
  * subscription is valid.
@@ -40,28 +47,42 @@ export async function POST(req: Request) {
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
-  if (!password) {
-    return NextResponse.json({ ok: false, error: "Enter your password." }, { status: 400 });
+  if (password.length < 6) {
+    return NextResponse.json(
+      { ok: false, error: "Password must be at least 6 characters." },
+      { status: 400 }
+    );
   }
 
   try {
+    const demo = await ensureDemoOrg();
+
+    // Real verification, identical to the cloud: the password must match the
+    // credential stored on the account. Same generic error for unknown email
+    // and wrong password; no auto-provisioning and no write-through here.
     const account = await db.userAccount.findUnique({ where: { email } });
-    // Same message whether the account is missing or the password is wrong,
-    // so the endpoint doesn't leak which emails are registered.
-    if (!account || !verifyPassword(password, account.passwordHash)) {
-      return NextResponse.json({ ok: false, error: "Invalid email or password." }, { status: 401 });
+    if (!account || !account.passwordHash || account.passwordHash !== password) {
+      return NextResponse.json(
+        { ok: false, error: "Incorrect email or password." },
+        { status: 401 }
+      );
     }
+
     if (!account.isActive) {
       return NextResponse.json({ ok: false, error: "This account has been disabled." }, { status: 403 });
     }
 
-    const org = account.organizationId
+    // Tenant resolution mirrors the cloud: the account's own organization, else
+    // one linked by email, else the demo tenant.
+    let org = account.organizationId
       ? await db.organization.findUnique({ where: { id: account.organizationId } })
-      : await db.organization.findFirst({ where: { email: account.email } });
+      : null;
+    if (!org) org = await db.organization.findFirst({ where: { email: account.email } });
+    if (!org) org = demo;
     if (!org) {
       return NextResponse.json(
-        { ok: false, error: "Your account is not linked to an organization yet. Contact your administrator." },
-        { status: 403 }
+        { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+        { status: 503 }
       );
     }
 

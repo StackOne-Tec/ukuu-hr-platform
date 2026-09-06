@@ -88,7 +88,7 @@ export default function ShiftsView({
       </div>
 
       {/* page header */}
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-shifts">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Scheduling</div>
           <h1 className="bk-admin-h1">Shift Management</h1>
@@ -102,7 +102,7 @@ export default function ShiftsView({
       </div>
 
       {/* configuration summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, marginBottom: 28 }} data-tour="shifts-config">
         {[
           { icon: FileText, title: "Assignments", sub: "Manage employee shift assignments and scheduling rosters.", link: `${assignments.length} assignments`, tint: "#7B2FBE" },
           { icon: SlidersHorizontal, title: "Tolerance Policy", sub: "Configure late, early departure, and absent thresholds.", link: "Attendance rules", tint: "#2563EB" },
@@ -179,7 +179,7 @@ export default function ShiftsView({
                 <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13 }}>
                   <Pencil size={14} /> Edit
                 </button>
-                <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13, color: "#DC2626" }}>
+                <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13, color: "var(--bk-accent)" }}>
                   <Trash2 size={14} /> Delete
                 </button>
               </div>

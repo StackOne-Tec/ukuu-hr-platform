@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 import AdminShell from "@/components/admin/AdminShell";
+import CopyLicense from "@/components/billing/CopyLicense";
 import { getBillingData } from "@/lib/queries";
-import { CreditCard, Check, Sparkles } from "lucide-react";
+import { CreditCard, Check, Sparkles, CalendarClock, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = { title: "Billing · Ukuu HR" };
 
@@ -19,7 +20,7 @@ export default async function BillingPage() {
 
   return (
     <AdminShell activeKey="billing">
-      <div className="bk-admin-section-header">
+      <div className="bk-admin-section-header" data-tour="page-billing">
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Account · subscription</div>
           <h1 className="bk-admin-h1">Billing</h1>
@@ -28,19 +29,38 @@ export default async function BillingPage() {
       </div>
 
       {/* license hero */}
-      <div style={{
+      <div data-tour="billing-license" style={{
         borderRadius: 20, padding: 36, marginBottom: 32, position: "relative", overflow: "hidden",
         background: "linear-gradient(135deg,#2D1B69 0%,#7B2FBE 55%,#A78BFA 130%)", color: "#fff",
       }}>
         <div style={{ position: "absolute", width: 380, height: 380, borderRadius: "50%", right: -120, top: -160, background: "radial-gradient(circle, rgba(240,194,87,.4), transparent 70%)" }} />
         <div style={{ position: "relative" }}>
-          <span className="bk-admin-pill" style={{ background: "rgba(240,194,87,.2)", color: "#F0C257", textTransform: "none" }}>
-            <Sparkles size={12} /> {b.plan} plan
-          </span>
-          <h2 style={{ fontSize: 26, fontWeight: 800, margin: "16px 0 6px", color: "#fff" }}>UkuuHR Demo Ltd</h2>
-          <p style={{ color: "rgba(255,255,255,.75)", fontSize: 14, margin: 0 }}>
-            License <span className="bk-mono">{b.licenseCode}</span> · {b.users} user(s) · {b.employees} employee(s) · expires {b.expiresAt ? new Date(b.expiresAt).toLocaleDateString() : "—"}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span className="bk-admin-pill" style={{ background: "rgba(240,194,87,.2)", color: "#F0C257", textTransform: "none" }}>
+              <Sparkles size={12} /> {b.plan} plan
+            </span>
+            <span className="bk-admin-pill" style={{ background: "rgba(52,211,153,.18)", color: "#6EE7B7", textTransform: "none" }}>
+              <ShieldCheck size={12} /> {b.status === "Active" ? "Active license" : b.status}
+            </span>
+          </div>
+          <h2 style={{ fontSize: 26, fontWeight: 800, margin: "16px 0 6px", color: "#fff" }}>{b.orgName}</h2>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 4 }}>
+            <span style={{ color: "rgba(255,255,255,.75)", fontSize: 13.5, fontWeight: 600 }}>License</span>
+            <CopyLicense code={b.licenseCode} />
+            <span style={{ color: "rgba(255,255,255,.75)", fontSize: 13.5 }}>
+              {b.users} user(s) · {b.employees} employee(s)
+            </span>
+          </div>
+
+          <p style={{ color: "rgba(255,255,255,.72)", fontSize: 13.5, margin: "16px 0 0", display: "flex", alignItems: "center", gap: 7 }}>
+            <CalendarClock size={15} />
+            {b.expiresAt ? (() => {
+              const days = Math.ceil((new Date(b.expiresAt).getTime() - Date.now()) / 86400000);
+              return <>Expires <strong style={{ color: "#fff" }}>{new Date(b.expiresAt).toLocaleDateString("en", { day: "2-digit", month: "short", year: "numeric" })}</strong> &nbsp;·&nbsp; {days > 0 ? `${days} day${days === 1 ? "" : "s"} remaining` : "expired"}</>;
+            })() : <>No expiry — subscription is permanent</>}
           </p>
+
           <button type="button" className="bk-btn" style={{ marginTop: 22, background: "#F0C257", color: "#25163F", fontWeight: 800 }}>
             <CreditCard size={16} /> Manage Subscription
           </button>
@@ -48,7 +68,7 @@ export default async function BillingPage() {
       </div>
 
       {/* plan comparison */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+      <div data-tour="billing-plans" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
         {PLANS.map((p) => (
           <div key={p.name} className="bk-admin-card" style={p.highlight ? { border: "2px solid #7B2FBE", position: "relative" } : undefined}>
             {p.highlight && (

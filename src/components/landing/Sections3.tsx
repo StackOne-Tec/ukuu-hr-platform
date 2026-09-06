@@ -412,9 +412,11 @@ export function Faq() {
       a: (
         <>
           Hikvision (ISAPI), ZKTeco, Suprema, Dahua, Anviz, Matrix, and eSSL are
-          all supported via REST + CSV. The desktop sync app bridges LAN-only
-          devices. New vendor connectors can be added in &lt; 200 lines via the{" "}
-          <code>IDeviceConnector</code> interface.
+          all supported via REST + CSV. The Ukuu HR Bridge desktop app links
+          LAN-only devices to the cloud — no device limits, sync on demand, or
+          schedule automatic uploads after every interval. New vendor connectors
+          can be added in &lt; 200 lines via the <code>IDeviceConnector</code>{" "}
+          interface.
         </>
       ),
     },

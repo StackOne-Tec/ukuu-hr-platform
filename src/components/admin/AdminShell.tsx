@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -26,8 +26,12 @@ import {
   Bell,
   CircleHelp,
   BarChart3,
+  TicketPercent,
+  CreditCard,
 } from "lucide-react";
 import { IS_ADMIN_PLATFORM } from "@/lib/platform";
+import AccessGate from "@/components/license/AccessGate";
+import TourWalkthrough from "@/components/tour/TourWalkthrough";
 import "../../app/admin.css";
 
 /* ───────────────────────── theme store ───────────────────────── */
@@ -92,6 +96,14 @@ const WORKSPACE: Entry[] = [
 const ADMIN: Entry[] = [
   { key: "settings", label: "Settings", href: "/settings", icon: Settings },
   { key: "security", label: "Security & Audit", href: "/security", icon: ShieldCheck },
+  { key: "billing", label: "Billing", href: "/billing", icon: CreditCard },
+];
+
+/* Admin-portal (platform) section — only rendered on the admin deployment,
+   which issues access codes and manages tenants platform-wide. */
+const PLATFORM: Entry[] = [
+  { key: "access-codes", label: "Access Codes", href: "/access-codes", icon: TicketPercent },
+  { key: "super-admin", label: "Platform Admin", href: "/super-admin", icon: ShieldUser },
 ];
 
 interface AdminShellProps {
@@ -106,6 +118,43 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; read: boolean; createdAt: string }[]>([]);
   const [unread, setUnread] = useState(0);
+
+  /* ── subscription gate ──
+     Every page load re-verifies the workspace license against the cloud, but
+     the check is silent: the app renders immediately and the fetch runs in the
+     background. Only a confirmed locked verdict swaps in the activation gate.
+     The last verdict is cached in sessionStorage so a locked workspace shows
+     the gate right away (no content flash) and a valid one never sees a
+     loader while the check re-runs. */
+  const [locked, setLocked] = useState<boolean>(() => {
+    if (IS_ADMIN_PLATFORM) return false;
+    try {
+      return typeof window !== "undefined" && sessionStorage.getItem("ukuu_license_locked") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const applyAccess = useCallback((isLocked: boolean) => {
+    setLocked(isLocked);
+    try {
+      sessionStorage.setItem("ukuu_license_locked", isLocked ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const refreshAccess = useCallback(() => {
+    if (IS_ADMIN_PLATFORM) return;
+    fetch("/api/license/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const s = d?.status;
+        applyAccess(Boolean(s?.enforce && s?.locked));
+      })
+      .catch(() => applyAccess(false));
+  }, [applyAccess]);
+  useEffect(() => {
+    refreshAccess();
+  }, [refreshAccess]);
 
   useEffect(() => {
     let alive = true;
@@ -151,7 +200,7 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
   const isActive = (key: string) => activeKey === key || activeKey.startsWith(key + "/") || activeKey.startsWith(key + "-");
 
   const renderLeaf = (leaf: Leaf) => (
-    <Link key={leaf.key} href={leaf.href} className={`bk-admin-sidebar-item${isActive(leaf.key) ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
+    <Link key={leaf.key} href={leaf.href} data-tour={`nav-${leaf.key}`} className={`bk-admin-sidebar-item${isActive(leaf.key) ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
       <span className="bk-admin-sidebar-item-icon"><leaf.icon size={19} strokeWidth={1.9} /></span>
       {!collapsed && <span className="bk-admin-sidebar-item-text">{leaf.label}</span>}
     </Link>
@@ -164,6 +213,7 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
         <div key={entry.key} className="bk-admin-sidebar-group">
           <button
             type="button"
+            data-tour={`nav-${entry.key}`}
             className={`bk-admin-sidebar-item${isActive(entry.key) ? " active" : ""}`}
             onClick={() => toggleGroup(entry.key)}
             aria-expanded={expanded}
@@ -179,7 +229,7 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
           {!collapsed && expanded && (
             <div>
               {entry.children.map((child) => (
-                <Link key={child.key} href={child.href} className={`bk-admin-sidebar-subitem${isActive(child.key) ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
+                <Link key={child.key} href={child.href} data-tour={`nav-${child.key}`} className={`bk-admin-sidebar-subitem${isActive(child.key) ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
                   <child.icon size={16} strokeWidth={1.9} style={{ color: "rgba(243,240,255,.6)" }} />
                   <span>{child.label}</span>
                 </Link>
@@ -191,6 +241,10 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
     }
     return renderLeaf(entry);
   };
+
+  /* License re-checks on every page load silently — never block the app on it.
+     Only a confirmed locked verdict shows the activation gate. */
+  if (locked) return <AccessGate onActivated={refreshAccess} />;
 
   return (
     <div className="bk-admin-body">
@@ -206,21 +260,32 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
         </Link>
 
         <nav className="bk-admin-sidebar-nav">
-          {!collapsed && <div className="bk-admin-sidebar-section-label">Workspace</div>}
-          {WORKSPACE.map((e) => renderEntry(e))}
+          {IS_ADMIN_PLATFORM ? (
+            /* Admin portal: the HR workspace modules are tenant features, so
+               the sidebar keeps only Dashboard + Administration + Platform. */
+            <>
+              {!collapsed && <div className="bk-admin-sidebar-section-label">Overview</div>}
+              {renderLeaf({ key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard })}
+            </>
+          ) : (
+            <>
+              {!collapsed && <div className="bk-admin-sidebar-section-label">Workspace</div>}
+              {WORKSPACE.map((e) => renderEntry(e))}
+            </>
+          )}
 
           {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Administration</div>}
           {ADMIN.map((e) => renderEntry(e))}
 
           {IS_ADMIN_PLATFORM && (
             <>
-              {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Super Admin</div>}
-              <Link href="/super-admin" className={`bk-admin-sidebar-item${isActive("super-admin") ? " active" : ""}`} onClick={() => setMobileOpen(false)}>
-                <span className="bk-admin-sidebar-item-icon"><ShieldUser size={19} strokeWidth={1.9} /></span>
-                {!collapsed && <span className="bk-admin-sidebar-item-text">Platform Admin</span>}
-              </Link>
+              {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Platform</div>}
+              {PLATFORM.map((e) => renderEntry(e))}
             </>
           )}
+
+          {!collapsed && <div className="bk-admin-sidebar-section-label" style={{ marginTop: 14 }}>Learn</div>}
+          <TourWalkthrough mode={IS_ADMIN_PLATFORM ? "admin" : "standard"} collapsed={collapsed} />
         </nav>
 
         <div className="bk-admin-sidebar-footer">
@@ -324,15 +389,23 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
         <main className="bk-admin-content bk-admin-fade-in">{children}</main>
       </div>
 
-      {/* mobile bottom nav */}
+      {/* mobile bottom nav — workspace items on standard, platform items on admin */}
       <nav className="bk-mobile-bottomnav" aria-label="Primary navigation">
         <div className="bk-mobile-bottomnav-items">
-          {[
-            { href: "/dashboard", label: "Home", icon: LayoutDashboard, key: "dashboard" },
-            { href: "/employees", label: "Team", icon: Users, key: "employees" },
-            { href: "/attendance", label: "Attendance", icon: Clock, key: "attendance" },
-            { href: "/leave", label: "Leave", icon: CalendarCheck, key: "leave" },
-          ].map((n) => (
+          {(IS_ADMIN_PLATFORM
+            ? [
+                { href: "/dashboard", label: "Home", icon: LayoutDashboard, key: "dashboard" },
+                { href: "/access-codes", label: "Codes", icon: TicketPercent, key: "access-codes" },
+                { href: "/super-admin", label: "Platform", icon: ShieldUser, key: "super-admin" },
+                { href: "/settings", label: "Settings", icon: Settings, key: "settings" },
+              ]
+            : [
+                { href: "/dashboard", label: "Home", icon: LayoutDashboard, key: "dashboard" },
+                { href: "/employees", label: "Team", icon: Users, key: "employees" },
+                { href: "/attendance", label: "Attendance", icon: Clock, key: "attendance" },
+                { href: "/leave", label: "Leave", icon: CalendarCheck, key: "leave" },
+              ]
+          ).map((n) => (
             <Link key={n.key} href={n.href} className={`bk-mobile-bottomnav-item${isActive(n.key) ? " active" : ""}`}>
               <n.icon size={20} strokeWidth={1.9} />
               <span>{n.label}</span>
