@@ -93,15 +93,15 @@ export async function POST(req: Request) {
     let userId: string | null = null
 
     const existingUser = await db.userAccount.findUnique({ where: { email } })
-    if (existingUser?.organizationId) {
-      // Returning user — sign into their existing (isolated) tenant.
-      organizationId = existingUser.organizationId
-      userId = existingUser.id
-      /* keep the Bridge password in sync with the cloud sign-up credentials */
-      if (password) {
-        await db.userAccount.update({ where: { id: existingUser.id }, data: { passwordHash: password } })
-      }
-    } else {
+    if (existingUser) {
+      // Registration must never hand out a session or overwrite the password
+      // of an existing account — they must sign in with that account's password.
+      return NextResponse.json(
+        { ok: false, error: "An account with this email already exists — sign in instead." },
+        { status: 409 }
+      )
+    }
+    {
       // New signup — provision a brand-new, isolated organization.
       let slug = workspace.replace(/\.ukuuhr\.app$/, "")
       let suffix = 1

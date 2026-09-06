@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -12,6 +13,7 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  LogOut,
   MonitorSmartphone,
   Plus,
   RefreshCw,
@@ -29,7 +31,13 @@ type BridgeSession = {
   expiresAt?: string;
   account?: { name?: string; email?: string; role?: string };
   organization?: { name?: string };
-  subscription?: { plan?: string; status?: string; valid?: boolean };
+  subscription?: {
+    plan?: string;
+    status?: string;
+    valid?: boolean;
+    expiresAt?: string | null;
+    reason?: string | null;
+  };
 };
 
 type Subscription = {
@@ -100,6 +108,8 @@ type Employee = {
 
 type Banner = { kind: "success" | "error" | "warn"; text: string } | null;
 
+type BridgePage = "devices" | "sync" | "attendance" | "import";
+
 /* ───────────────────────── helpers ───────────────────────── */
 
 const INTEGRATION_MODES = ["REST", "CSV", "SDK", "TCP"] as const;
@@ -168,7 +178,7 @@ function buildSimulatedEvents(employees: Employee[], deviceId: string) {
 
 /* ───────────────────────── component ───────────────────────── */
 
-export default function BridgeDashboard() {
+export default function BridgeDashboard({ page }: { page: BridgePage }) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -191,6 +201,12 @@ export default function BridgeDashboard() {
   const [syncs, setSyncs] = useState<SyncRun[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  /* per-panel readiness — each dataset streams in independently so a slow
+     endpoint never holds back the rest of the dashboard */
+  const [devicesReady, setDevicesReady] = useState(false);
+  const [syncsReady, setSyncsReady] = useState(false);
+  const [attendanceReady, setAttendanceReady] = useState(false);
 
   /* add-device form (whiteboard fields: name, vendor, model, IP, integration, sync interval) */
   const [form, setForm] = useState({
@@ -233,36 +249,85 @@ export default function BridgeDashboard() {
   const load = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
+    setLoading(true);
+
+    // The account payload (org + subscription + device summary) is resolved
+    // from the SAME license record the web console gates on, so this is the
+    // bridge's authoritative "web application overall" subscription check.
     try {
-      const [acc, dev, syn, att, emp] = await Promise.all([
-        fetch("/api/v1/bridge/account", { headers: authHeaders() }).then((r) => r.json()),
-        fetch("/api/v1/bridge/devices", { headers: authHeaders() }).then((r) => r.json()),
-        fetch("/api/v1/bridge/syncs?limit=60", { headers: authHeaders() }).then((r) => r.json()),
-        fetch("/api/v1/bridge/attendance", { headers: authHeaders() }).then((r) => r.json()),
-        fetch("/api/v1/bridge/employees", { headers: authHeaders() }).then((r) => r.json()),
-      ]);
+      const accRes = await fetch("/api/v1/bridge/account", { headers: authHeaders() });
+      if (accRes.status === 401) {
+        // Stored session died server-side (expired/revoked) — drop it and send
+        // the user back to sign-in instead of showing a stale dashboard.
+        clearSession();
+        router.replace("/bridge/login");
+        return;
+      }
+      const acc = (await accRes.json().catch(() => null)) as {
+        ok?: boolean;
+        account?: { name: string; email: string; role: string } | null;
+        organization?: { name: string } | null;
+        subscription?: Subscription | null;
+        dashboard?: { allowed: boolean; devices: { total: number; online: number; offline: number; error: number } } | null;
+      } | null;
       if (acc?.ok) {
         setAccount(acc.account ?? null);
         setOrgName(acc.organization?.name ?? null);
         setSubscription(acc.subscription ?? null);
         setSummary(acc.dashboard ?? null);
+        setBanner(null);
+        // The web app's verdict controls the workspace: when it reports the
+        // subscription invalid, the desktop app must not proceed — the locked
+        // screen renders instead, so skip the data panels entirely.
+        if (acc.subscription && !acc.subscription.valid) return;
       }
-      if (dev?.ok) {
-        setDevices(dev.devices ?? []);
-        setQuota(dev.quota ?? null);
-      }
-      if (syn?.ok) setSyncs(syn.syncs ?? []);
-      if (att?.ok) setAttendance(att.attendance ?? []);
-      if (emp?.ok) setEmployees(emp.employees ?? []);
-      setBanner(null);
     } catch {
       setBanner({ kind: "error", text: "Unable to reach the cloud gateway — check your connection and retry." });
     } finally {
       setLoading(false);
     }
-  }, [authHeaders]);
 
-  /* boot: restore the Bridge session, or send the user back to sign-in */
+    // Panels refresh independently — each updates its own list (and flips its
+    // ready flag) the moment its endpoint responds, so a slow devices/syncs/
+    // attendance/employees call never delays the others.
+    await Promise.all([
+      fetch("/api/v1/bridge/devices", { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.ok) {
+            setDevices(d.devices ?? []);
+            setQuota(d.quota ?? null);
+          }
+          setDevicesReady(true);
+        })
+        .catch(() => setDevicesReady(true)),
+      fetch("/api/v1/bridge/syncs?limit=60", { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.ok) setSyncs(d.syncs ?? []);
+          setSyncsReady(true);
+        })
+        .catch(() => setSyncsReady(true)),
+      fetch("/api/v1/bridge/attendance", { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.ok) setAttendance(d.attendance ?? []);
+          setAttendanceReady(true);
+        })
+        .catch(() => setAttendanceReady(true)),
+      fetch("/api/v1/bridge/employees", { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.ok) setEmployees(d.employees ?? []);
+        })
+        .catch(() => {}),
+    ]);
+  }, [authHeaders, router]);
+
+  /* boot: restore the Bridge session, or send the user back to sign-in.
+     Seed the shell from the stored session (account/org/subscription) so the
+     dashboard paints instantly after login, then refresh in place to confirm
+     against the cloud — no full-screen wait in between. */
   useEffect(() => {
     const s = readSession();
     if (!s) {
@@ -271,6 +336,11 @@ export default function BridgeDashboard() {
     }
     sessionRef.current = s;
     setSession(s);
+    if (s.account?.name) {
+      setAccount(s.account as { name: string; email: string; role: string });
+    }
+    if (s.organization?.name) setOrgName(s.organization.name);
+    if (s.subscription) setSubscription(s.subscription as Subscription);
     void load();
   }, [router, load]);
 
@@ -521,8 +591,88 @@ export default function BridgeDashboard() {
     );
   }
 
+  /* ── subscription gate ──
+     The desktop app mirrors the web console's license: while the cloud reports
+     the workspace subscription as invalid, the Bridge must not proceed into
+     devices / sync / import. The account fetch (the authoritative web-app
+     check) runs on every mount, and a stored-invalid session locks immediately
+     so an unlicensed workspace never flashes the dashboard. */
+  if (subscription && !subscription.valid) {
+    return (
+      <div className="br-root font-br-sans flex h-dvh w-full flex-col bg-br-surface-container-lowest text-br-on-surface">
+        <main className="flex flex-1 items-center justify-center overflow-y-auto px-6 py-10">
+          <div className="w-full max-w-md">
+            {/* brand lockup */}
+            <div className="mb-7 flex items-center justify-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-br-primary-container to-br-secondary-container shadow-lg shadow-br-primary-container/30">
+                <UkuuLogoMark size={26} white />
+              </span>
+              <span className="flex flex-col leading-tight">
+                <span className="font-br-sans text-[15px] font-extrabold tracking-[0.2em] text-br-on-surface">UKUU HR</span>
+                <span className="font-br-sans text-[10px] font-bold uppercase tracking-[0.24em] text-br-on-surface-variant">
+                  Access Sync Bridge
+                </span>
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-br-surface-variant bg-white p-6 shadow-[0_20px_55px_-28px_rgba(76,40,130,0.4)] sm:p-7">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#fff3e0] text-br-tertiary">
+                  <ShieldCheck size={22} strokeWidth={2} />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="font-br-sans m-0 text-[17px] font-extrabold tracking-tight text-br-on-surface">
+                    Workspace locked
+                  </h1>
+                  <p className="font-br-sans m-0 mt-0.5 text-[12px] font-semibold text-br-on-surface-variant">
+                    {orgName ?? "Your workspace"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="font-br-sans m-0 mt-4 text-[13px] leading-relaxed text-br-on-surface-variant">
+                {subscription.reason ??
+                  "Your subscription isn't active, so the Bridge can't sync devices or import attendance right now."}
+              </p>
+
+              <div className="mt-6 flex items-center gap-2 border-t border-br-surface-variant pt-5">
+                <button
+                  type="button"
+                  className="br-btn br-btn-primary flex-1"
+                  onClick={() => void load()}
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                  I&rsquo;ve activated it &mdash; check again
+                </button>
+                <button
+                  type="button"
+                  className="br-btn br-btn-ghost"
+                  onClick={() => void signOut()}
+                  disabled={signingOut}
+                >
+                  {signingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+                  Sign Out
+                </button>
+              </div>
+
+              <p className="font-br-sans m-0 mt-5 text-center text-[11px] leading-relaxed text-br-outline">
+                The Bridge mirrors your Ukuu HR web workspace &mdash; redeem an access code or renew your
+                subscription there, then check again here.
+              </p>
+            </div>
+
+            <p className="font-br-mono mt-7 text-center text-[10px] uppercase tracking-[0.2em] text-br-outline">
+              local daemon 127.0.0.1:4370 &middot; cloud gateway idle
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="br-root font-br-sans flex min-h-dvh select-none flex-col bg-br-surface-container-lowest text-br-on-surface">
+    <div className="br-root font-br-sans flex h-dvh select-none flex-col bg-br-surface-container-lowest text-br-on-surface">
       {/* ── window titlebar ── */}
       <header className="flex h-[2.375rem] w-full items-center justify-between bg-br-surface-container-lowest/90 px-4 backdrop-blur-xl">
         <div className="flex w-48 items-center gap-2">
@@ -553,6 +703,84 @@ export default function BridgeDashboard() {
         </div>
       </header>
 
+      {/* ── body: sidebar navigation + page content ── */}
+      <div className="flex min-h-0 flex-1">
+        <aside className="br-sidebar" aria-label="Bridge navigation">
+          <div className="br-sidebar-brand">
+            <span className="br-sidebar-logo">
+              <UkuuLogoMark size={22} white />
+            </span>
+            <span className="br-sidebar-brand-text hidden lg:flex">
+              <span className="br-sidebar-brand-name">UKUU HR</span>
+              <span className="br-sidebar-brand-sub">Access Sync Bridge</span>
+            </span>
+          </div>
+
+          <nav className="br-sidebar-nav">
+            <div className="br-sidebar-section hidden lg:block">Bridge</div>
+            <Link
+              href="/bridge/dashboard/devices"
+              className={`br-sidebar-item${page === "devices" ? " active" : ""}`}
+            >
+              <span className="br-sidebar-item-icon">
+                <MonitorSmartphone size={18} strokeWidth={1.9} />
+              </span>
+              <span className="br-sidebar-item-label hidden lg:block">Devices</span>
+            </Link>
+            <Link
+              href="/bridge/dashboard/sync"
+              className={`br-sidebar-item${page === "sync" ? " active" : ""}`}
+            >
+              <span className="br-sidebar-item-icon">
+                <Clock3 size={18} strokeWidth={1.9} />
+              </span>
+              <span className="br-sidebar-item-label hidden lg:block">Sync Activity</span>
+            </Link>
+            <Link
+              href="/bridge/dashboard/attendance"
+              className={`br-sidebar-item${page === "attendance" ? " active" : ""}`}
+            >
+              <span className="br-sidebar-item-icon">
+                <CalendarCheck size={18} strokeWidth={1.9} />
+              </span>
+              <span className="br-sidebar-item-label hidden lg:block">Attendance</span>
+            </Link>
+            <Link
+              href="/bridge/dashboard/import"
+              className={`br-sidebar-item${page === "import" ? " active" : ""}`}
+            >
+              <span className="br-sidebar-item-icon">
+                <KeyRound size={18} strokeWidth={1.9} />
+              </span>
+              <span className="br-sidebar-item-label hidden lg:block">Import</span>
+            </Link>
+          </nav>
+
+          <div className="br-sidebar-footer">
+            <div className="br-sidebar-account">
+              <div className="br-sidebar-user">
+                <span className="br-sidebar-user-avatar">
+                  {(account?.name ?? "B").charAt(0).toUpperCase()}
+                </span>
+                <span className="br-sidebar-user-meta hidden lg:flex">
+                  <span className="br-sidebar-user-name">{account?.name ?? "Bridge Daemon"}</span>
+                  <span className="br-sidebar-user-role">{account?.email ?? orgName ?? "Workspace"}</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                className="br-sidebar-signout"
+                onClick={() => void signOut()}
+                disabled={signingOut}
+              >
+                {signingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+                <span className="hidden lg:inline">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
       {/* ── app bar: org / account / subscription / actions ── */}
       <div className="border-b border-br-surface-variant/50 bg-br-surface/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3 px-5 py-3">
@@ -564,10 +792,6 @@ export default function BridgeDashboard() {
               <div className="flex items-center gap-2 font-br-sans text-br-headline-sm leading-4 text-br-on-surface">
                 UKUU HR <span className="text-br-outline">/</span>{" "}
                 <span className="truncate">{orgName ?? "Bridge"}</span>
-              </div>
-              <div className="mt-0.5 font-br-mono text-br-code-mono-sm text-br-on-surface-variant">
-                {account?.name ?? "Administrator"} · {account?.role ?? "bridge"}
-                {account?.email ? ` · ${account.email}` : ""}
               </div>
             </div>
           </div>
@@ -588,26 +812,11 @@ export default function BridgeDashboard() {
               <RefreshCw size={14} />
               Refresh
             </button>
-            <button type="button" className="br-btn br-btn-danger" onClick={() => void signOut()} disabled={signingOut}>
-              {signingOut ? <Loader2 size={14} className="animate-spin" /> : null}
-              Sign Out
-            </button>
           </div>
         </div>
       </div>
 
-      {loading ? (
-        <main className="flex flex-1 items-center justify-center p-10">
-          <div className="flex items-center gap-3 font-br-mono text-br-code-mono-sm text-br-on-surface-variant">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-br-tertiary opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-br-primary" />
-            </span>
-            Connecting to cloud gateway…
-          </div>
-        </main>
-      ) : (
-        <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-5 py-5">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-5 py-5">
           {banner && (
             <div
               role="status"
@@ -629,40 +838,46 @@ export default function BridgeDashboard() {
             </div>
           )}
 
-          {subscription && !subscription.valid && (
-            <div className="flex items-start gap-2 rounded-sm border border-br-tertiary/30 bg-br-tertiary-container/15 px-3 py-2 font-br-sans text-br-body-sm text-br-tertiary">
-              <ShieldCheck size={15} className="mt-0.5 flex-shrink-0" />
-              <span>{subscription.reason ?? "Your subscription is not active — device sync is paused."}</span>
+          {/* ── per-page KPI strips ── */}
+          {page === "devices" && (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="br-kpi">
+                <div className="br-kpi-value">{summary ? summary.devices.total : devicesReady ? devices.length : "—"}</div>
+                <div className="br-kpi-label">Registered Devices</div>
+                <div className="br-kpi-sub">
+                  {summary ? `${summary.devices.online} online · ${summary.devices.offline} offline · ${summary.devices.error} error` : "—"}
+                </div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value">{devicesReady ? autoSyncCount : "—"}</div>
+                <div className="br-kpi-label">Auto-Sync Devices</div>
+                <div className="br-kpi-sub">auto-upload enabled · no device limit</div>
+              </div>
             </div>
           )}
 
-          {/* ── KPI row ── */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="br-kpi">
-              <div className="br-kpi-value">{summary?.devices.total ?? devices.length}</div>
-              <div className="br-kpi-label">Registered Devices</div>
-              <div className="br-kpi-sub">
-                {summary ? `${summary.devices.online} online · ${summary.devices.offline} offline · ${summary.devices.error} error` : "—"}
+          {page === "sync" && (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="br-kpi">
+                <div className="br-kpi-value">{syncsReady ? syncsToday : "—"}</div>
+                <div className="br-kpi-label">Sync Runs Today</div>
+                <div className="br-kpi-sub">last {syncsReady && syncs[0] ? timeAgo(syncs[0].ranAt) : "—"}</div>
               </div>
             </div>
-            <div className="br-kpi">
-              <div className="br-kpi-value">{syncsToday}</div>
-              <div className="br-kpi-label">Sync Runs Today</div>
-              <div className="br-kpi-sub">last {syncs[0] ? timeAgo(syncs[0].ranAt) : "—"}</div>
-            </div>
-            <div className="br-kpi">
-              <div className="br-kpi-value">{attendance.length}</div>
-              <div className="br-kpi-label">Attendance Synced Today</div>
-              <div className="br-kpi-sub">device punches → cloud rows</div>
-            </div>
-            <div className="br-kpi">
-              <div className="br-kpi-value">{autoSyncCount}</div>
-              <div className="br-kpi-label">Auto-Sync Devices</div>
-              <div className="br-kpi-sub">auto-upload enabled · no device limit</div>
-            </div>
-          </div>
+          )}
 
-          {/* ── devices + add device ── */}
+          {page === "attendance" && (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="br-kpi">
+                <div className="br-kpi-value">{attendanceReady ? attendance.length : "—"}</div>
+                <div className="br-kpi-label">Attendance Synced Today</div>
+                <div className="br-kpi-sub">device punches → cloud rows</div>
+              </div>
+            </div>
+          )}
+
+          {/* ── devices page: registered devices + add device ── */}
+          {page === "devices" && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
             <div className="br-panel xl:col-span-7">
               <div className="br-panel-head">
@@ -678,7 +893,12 @@ export default function BridgeDashboard() {
                 </span>
               </div>
               <div>
-                {devices.length === 0 ? (
+                {!devicesReady ? (
+                  <div className="br-empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading registered devices…
+                  </div>
+                ) : devices.length === 0 ? (
                   <div className="br-empty">
                     No devices registered yet — use the Add Device form to register the first one from your LAN.
                   </div>
@@ -904,8 +1124,10 @@ export default function BridgeDashboard() {
               </form>
             </div>
           </div>
+          )}
 
-          {/* ── API-key direct import (same DB as the cloud) ── */}
+          {/* ── import page: API-key direct import (same DB as the cloud) ── */}
+          {page === "import" && (
           <div className="br-panel">
             <div className="br-panel-head">
               <div>
@@ -997,10 +1219,12 @@ export default function BridgeDashboard() {
               </p>
             </form>
           </div>
+          )}
 
-          {/* ── sync activity + attendance ── */}
+          {/* ── sync page: device → desktop → cloud uploads ── */}
+          {page === "sync" && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-            <div className="br-panel xl:col-span-5">
+            <div className="br-panel xl:col-span-12">
               <div className="br-panel-head">
                 <div>
                   <h2 className="br-panel-title">
@@ -1013,7 +1237,12 @@ export default function BridgeDashboard() {
                 </div>
               </div>
               <div>
-                {syncs.length === 0 ? (
+                {!syncsReady ? (
+                  <div className="br-empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading sync history…
+                  </div>
+                ) : syncs.length === 0 ? (
                   <div className="br-empty">
                     No sync runs yet — press “Sync now” on a registered device to pull and upload its punch data.
                   </div>
@@ -1044,8 +1273,13 @@ export default function BridgeDashboard() {
                 )}
               </div>
             </div>
+          </div>
+          )}
 
-            <div className="br-panel xl:col-span-7">
+          {/* ── attendance page: synced attendance records ── */}
+          {page === "attendance" && (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+            <div className="br-panel xl:col-span-12">
               <div className="br-panel-head">
                 <div>
                   <h2 className="br-panel-title">
@@ -1057,7 +1291,12 @@ export default function BridgeDashboard() {
                   </p>
                 </div>
               </div>
-              {attendance.length === 0 ? (
+              {!attendanceReady ? (
+                <div className="br-empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  Loading attendance records…
+                </div>
+              ) : attendance.length === 0 ? (
                 <div className="br-empty">
                   No attendance synced yet today — sync a device to populate the retrieved punch data here.
                 </div>
@@ -1095,8 +1334,10 @@ export default function BridgeDashboard() {
               )}
             </div>
           </div>
+          )}
         </main>
-      )}
+        </div>
+      </div>
 
       {/* ── status bar footer ── */}
       <footer className="flex h-8 w-full items-center justify-between bg-br-surface-container-lowest/95 px-4 backdrop-blur-md">

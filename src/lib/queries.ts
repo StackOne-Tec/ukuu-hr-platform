@@ -582,24 +582,14 @@ export async function getSettings() {
   return safe(async () => {
     const org = await currentOrg();
     const orgId = org?.id ?? "none";
-    const [branches, users, leaveTypes, notifications, licenses, employees, departments, apiKeys] = await Promise.all([
-      db.branch.findMany({ where: { organizationId: orgId } }),
+    const [users, apiKeys, departments] = await Promise.all([
       db.userAccount.findMany({ where: { organizationId: orgId } }),
-      db.leaveType.findMany({ where: { organizationId: orgId } }),
-      db.notification.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, take: 10 }),
-      db.licenseCode.findFirst({ where: { organizationId: orgId } }),
-      db.employee.count({ where: { organizationId: orgId } }),
-      db.department.findMany({ where: { organizationId: orgId } }),
       db.apiKey.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" } }),
+      // departments still feed the employee add/edit forms (they load via getSettings)
+      db.department.findMany({ where: { organizationId: orgId } }),
     ]);
     return {
-      org: org ? { id: org.id, name: org.name, email: org.email ?? "", country: org.country, currency: org.currency, plan: org.plan } : null,
-      branches: branches.map((b) => ({ id: b.id, name: b.name, city: b.city ?? "", address: b.address ?? "", isHeadOffice: b.isHeadOffice })),
       users: users.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, isActive: u.isActive, lastLoginAt: iso(u.lastLoginAt) })),
-      leaveTypes: leaveTypes.map((t) => ({ id: t.id, name: t.name, daysPerYear: t.daysPerYear, color: t.color })),
-      notifications: notifications.map((n) => ({ id: n.id, title: n.title, message: n.message, read: n.read, createdAt: iso(n.createdAt) })),
-      license: licenses ? { code: licenses.code, plan: licenses.plan, status: licenses.status, expiresAt: iso(licenses.expiresAt) } : null,
-      employeeCount: employees,
       departments: departments.map((d) => ({ id: d.id, name: d.name })),
       apiKeys: apiKeys.map((k) => ({
         id: k.id,
@@ -613,7 +603,7 @@ export async function getSettings() {
         rotatedAt: iso(k.rotatedAt),
       })),
     };
-  }, { org: null, branches: [], users: [], leaveTypes: [], notifications: [], license: null, employeeCount: 0, departments: [], apiKeys: [] });
+  }, { users: [], apiKeys: [], departments: [] });
 }
 
 /* ───────────────────────── security / billing / super admin ───────────────────────── */

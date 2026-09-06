@@ -83,8 +83,7 @@ export function Download() {
               Intel (x64) .dmg
             </a>
             <p className="lp-dl-note">
-              Intel (x64) ships with the v3.4.1 release — Codemagic publishes
-              Apple Silicon builds.
+              Codemagic publishes both Apple Silicon and Intel (x64) builds.
             </p>
             <p className="lp-dl-note">
               Open the .dmg → drag UkuuHrSync.app to Applications. First launch:

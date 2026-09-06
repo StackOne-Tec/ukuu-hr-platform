@@ -21,14 +21,17 @@ function makeToken(): string {
 }
 
 /**
- * Sign-in for the demo auth experience. Accepts any syntactically valid
- * email + password (>= 6 chars). Tenant resolution:
- *   - an email that already has a UserAccount signs into that account's
- *     organization (company data isolation),
- *   - an unknown email gets an Admin account on the shared demo tenant so
- *     the demo workspace stays reachable with any credentials.
+ * Sign-in. Verifies the typed password against the credential stored on the
+ * account — no more accepting any >=6-char password. Unknown emails and wrong
+ * passwords get the same generic rejection (no auto-provisioning, no
+ * write-through). Tenant resolution: the signed-in user's own organization
+ * (company data isolation).
  * A server-side httpOnly session cookie is set so pages and API routes can
  * scope every query to the signed-in user's organization.
+ *
+ * NOTE: stored credentials are currently plaintext mock-auth; the comparison
+ * below is where a real hashed-password check (e.g. bcrypt) slots in when an
+ * identity provider lands.
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
@@ -61,24 +64,15 @@ export async function POST(req: Request) {
 
   try {
     const demo = await ensureDemoOrg()
-    let user = await db.userAccount.findUnique({ where: { email } })
-    if (!user) {
-      user = await db.userAccount.create({
-        data: {
-          email,
-          name: nameFromEmail(email),
-          organizationId: demo?.id ?? null,
-          role: "Admin",
-          /* store the chosen password so the same credentials also work on the
-             Bridge desktop app (plaintext mock auth — verifyPassword compares
-             directly, matching the rest of the demo) */
-          passwordHash: password,
-        },
-      })
-    } else if (password) {
-      /* write-through: the Bridge authenticates against this field, so keep it
-         in sync with whatever password the user signs into the cloud with */
-      await db.userAccount.update({ where: { id: user.id }, data: { passwordHash: password } })
+    const user = await db.userAccount.findUnique({ where: { email } })
+    // Real verification: the password must match the one stored on the account.
+    // Same generic error for unknown email and wrong password (no account
+    // enumeration), and accounts are never auto-provisioned or re-keyed here.
+    if (!user || !user.passwordHash || user.passwordHash !== password) {
+      return NextResponse.json(
+        { ok: false, error: "Incorrect email or password." },
+        { status: 401 }
+      )
     }
     const organizationId = user.organizationId ?? demo?.id ?? null
     const sessionToken = organizationId
@@ -87,7 +81,7 @@ export async function POST(req: Request) {
 
     const res = NextResponse.json({
       ok: true,
-      user: { email, name: nameFromEmail(email) },
+      user: { email, name: user.name || nameFromEmail(email) },
       token: makeToken(),
       session: remember ? "persistent" : "ephemeral",
       organizationId,

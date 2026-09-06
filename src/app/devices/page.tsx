@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
 import { getDevices } from "@/lib/queries";
-import { Plus, FlaskConical } from "lucide-react";
+import { FlaskConical } from "lucide-react";
 
 export const metadata: Metadata = { title: "Devices · Ukuu HR" };
 
@@ -27,7 +27,6 @@ export default async function DevicesPage() {
         </div>
         <div className="bk-admin-actions">
           <Link href="/devices/diagnostics" className="bk-btn bk-btn-secondary"><FlaskConical size={16} /> Diagnostics</Link>
-          <Link href="/devices/add" className="bk-btn bk-btn-primary" data-tour="devices-add"><Plus size={16} /> Add Device</Link>
         </div>
       </div>
 
@@ -54,7 +53,7 @@ export default async function DevicesPage() {
             <tr><th>Device</th><th>Vendor</th><th>Model</th><th>IP Address</th><th>Mode</th><th>Last Sync</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {devices.length === 0 && <tr><td colSpan={7} className="bk-admin-empty">No devices registered yet.</td></tr>}
+            {devices.length === 0 && <tr><td colSpan={7} className="bk-admin-empty">No devices registered yet — register one from the Bridge desktop app.</td></tr>}
             {devices.map((d) => (
               <tr key={d.id}>
                 <td style={{ fontWeight: 600 }}>{d.name}</td>

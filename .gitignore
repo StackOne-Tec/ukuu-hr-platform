@@ -65,3 +65,7 @@ server.log
 *.pid
 # admin-mode dev build dir (runs alongside .next)
 /.next-admin/
+
+# playwright test output
+/test-results/
+/playwright-report/

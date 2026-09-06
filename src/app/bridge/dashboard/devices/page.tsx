@@ -6,10 +6,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * /bridge/dashboard — default landing route after a Bridge sign-in.
- * Renders the Devices page (registered devices + add-device form); the
- * canonical deep-link URL is /bridge/dashboard/devices.
+ * /bridge/dashboard/devices — registered attendance devices on the LAN and
+ * the license-aware add-device form.
  */
-export default function BridgeDashboardPage() {
+export default function BridgeDevicesPage() {
   return <BridgeDashboard page="devices" />;
 }

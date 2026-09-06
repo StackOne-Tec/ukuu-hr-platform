@@ -234,8 +234,8 @@ export const STANDARD_TOURS: Tour[] = [
     accent: "#A78BFA",
     steps: [
       { key: "settings", title: "Open Settings", body: "Click Settings in the sidebar to open workspace configuration." },
-      { key: "settings", href: "/settings", title: "Settings", body: "Everything that configures your workspace lives here — profile, branches, leave types, notifications, users and API keys." },
-      { key: "settings-tabs", href: "/settings", title: "Six configuration areas", body: "Organization, Branches, Leave Types, Notifications, User Management and API Keys — jump straight to the area you need." },
+      { key: "settings", href: "/settings", title: "Settings", body: "Everything that configures your workspace lives here — user accounts and the API keys used for integrations." },
+      { key: "settings-tabs", href: "/settings", title: "Configuration areas", body: "User Management and API Keys — jump straight to the area you need." },
     ],
   },
 ];

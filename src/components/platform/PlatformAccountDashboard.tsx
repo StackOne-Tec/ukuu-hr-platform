@@ -33,7 +33,7 @@ export default function PlatformAccountDashboard({ data }: { data: PlatformAccou
         <div className="bk-admin-section-header-left">
           <div className="bk-admin-greeting">Platform administration · all workspaces</div>
           <h1 className="bk-admin-h1">Account Overview</h1>
-          <p className="bk-admin-sub">Registered users, discount coupons and organizations across the platform.</p>
+          <p className="bk-admin-sub">Registered users, access codes and organizations across the platform.</p>
         </div>
       </div>
 
@@ -102,9 +102,8 @@ export default function PlatformAccountDashboard({ data }: { data: PlatformAccou
 export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
-  const [discount, setDiscount] = useState("");
+  const [months, setMonths] = useState("12");
   const [plan, setPlan] = useState("");
-  const [expires, setExpires] = useState("");
   const [description, setDescription] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<{ kind: "error" | "success"; text: string } | null>(null);
@@ -127,9 +126,10 @@ export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
     setBanner(null);
     const e: Record<string, string> = {};
     if (!code.trim()) e.code = "Enter an access code.";
-    const d = Number(discount);
-    if (discount === "" || !Number.isInteger(d) || d < 0 || d > 100) e.discount = "Discount must be 0–100.";
-    if (expires && Number.isNaN(new Date(expires).getTime())) e.expires = "Enter a valid date.";
+    const m = months === "" ? null : Number(months);
+    if (months !== "" && (m === null || !Number.isInteger(m) || m < 1 || m > 120)) {
+      e.months = "Choose a valid duration.";
+    }
     setErrors(e);
     if (Object.keys(e).length > 0) return;
 
@@ -140,16 +140,15 @@ export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: code.trim(),
-          discountPercent: d,
+          months: m,
           plan: plan.trim() || undefined,
-          expiresAt: expires || undefined,
           description: description.trim() || undefined,
         }),
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !data?.ok) throw new Error(data?.error ?? "Unable to create the access code.");
       setBanner({ kind: "success", text: `Access code ${code.trim().toUpperCase()} created.` });
-      setCode(""); setDiscount(""); setPlan(""); setExpires(""); setDescription("");
+      setCode(""); setMonths("12"); setPlan(""); setDescription("");
       setOpen(false);
       window.setTimeout(() => window.location.reload(), 600);
     } catch (err) {
@@ -205,35 +204,41 @@ export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
               </button>
             </div>
             <form onSubmit={submit} noValidate className="bk-admin-card-content" style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.4fr 1fr", gap: 10 }}>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
                   Access code
                   <input autoFocus placeholder="UKUU-PRO-2026" value={code} onChange={(ev) => setCode(ev.target.value)} aria-invalid={Boolean(errors.code)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
                   {errors.code && <span style={{ color: "#DC2626", fontWeight: 500 }}>{errors.code}</span>}
                 </label>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
-                  Discount %
-                  <input inputMode="numeric" placeholder="20" value={discount} onChange={(ev) => setDiscount(ev.target.value)} aria-invalid={Boolean(errors.discount)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
-                  {errors.discount && <span style={{ color: "#DC2626", fontWeight: 500 }}>{errors.discount}</span>}
+                  Duration
+                  <select
+                    value={months}
+                    onChange={(ev) => setMonths(ev.target.value)}
+                    aria-invalid={Boolean(errors.months)}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13, background: "#fff" }}
+                  >
+                    <option value="1">1 month</option>
+                    <option value="3">3 months</option>
+                    <option value="6">6 months</option>
+                    <option value="12">12 months</option>
+                    <option value="24">24 months</option>
+                    <option value="">Lifetime (no expiry)</option>
+                  </select>
+                  {errors.months && <span style={{ color: "#DC2626", fontWeight: 500 }}>{errors.months}</span>}
                 </label>
                 <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
                   Plan (optional)
                   <input placeholder="Enterprise" value={plan} onChange={(ev) => setPlan(ev.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
                 </label>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
-                  Expires (optional)
-                  <input type="date" value={expires} onChange={(ev) => setExpires(ev.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
-                  {errors.expires && <span style={{ color: "#DC2626", fontWeight: 500 }}>{errors.expires}</span>}
-                </label>
-                <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
-                  Description (optional)
-                  <input placeholder="e.g. Founder access code — Professional plan" value={description} onChange={(ev) => setDescription(ev.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
-                </label>
-              </div>
+              <label style={{ display: "grid", gap: 4, fontSize: 12, fontWeight: 600 }}>
+                Description (optional)
+                <input placeholder="e.g. Founder access code — Professional plan" value={description} onChange={(ev) => setDescription(ev.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bk-line)", fontSize: 13 }} />
+              </label>
               <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--bk-ink-3)", lineHeight: 1.5 }}>
-                Single-use: the first workspace that redeems this code gets the subscription — it can&rsquo;t be used again.
+                Access codes are 100% off — redeeming one activates the subscription for the chosen duration and never asks for a payment.
+                Single-use: it can&rsquo;t be used again after a workspace redeems it.
               </p>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
                 <button type="button" className="bk-btn bk-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
@@ -269,7 +274,7 @@ export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
                 title="View usage detail"
               >
                 <span className="bk-mono" style={{ fontWeight: 700, fontSize: 13 }}>{c.code}</span>
-                <span className="bk-admin-pill pending" style={{ textTransform: "none" }}>{c.discountPercent}% off</span>
+                <span className="bk-admin-pill pending" style={{ textTransform: "none" }} title="100% discount — codes never take payment">Full access</span>
                 {c.plan !== "All plans" && <span className="bk-muted-text">{c.plan}</span>}
                 <span style={{ flex: 1 }} />
                 <span className="bk-muted-text">{dateOnly(c.expiresAt)}</span>
@@ -307,7 +312,7 @@ export function CouponsPanel({ coupons }: { coupons: Coupon[] }) {
                       {detail("Plan", c.plan === "All plans" ? "Any" : c.plan)}
                     </>
                   )}
-                  {detail("Discount", `${c.discountPercent}%`)}
+                  {detail("Payment", "None — 100% off")}
                   {detail("Created", dateTime(c.createdAt))}
                   {detail("Expires", c.expiresAt ? dateOnly(c.expiresAt) : "Never")}
                   {c.description && (

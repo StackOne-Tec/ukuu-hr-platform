@@ -32,7 +32,6 @@ export default async function AttendancePage() {
         </div>
         <div className="bk-admin-actions">
           <Link href="/attendance/logs" className="bk-btn bk-btn-secondary"><RefreshCw size={16} /> Logs</Link>
-          <Link href="/attendance/import" className="bk-btn bk-btn-secondary"><CloudDownload size={16} /> Import Records</Link>
           <Link href="/clock" className="bk-btn bk-btn-primary" data-tour="attendance-clock"><Timer size={16} /> Clock In / Out</Link>
         </div>
       </div>

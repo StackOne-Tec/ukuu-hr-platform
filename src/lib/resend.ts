@@ -1,10 +1,26 @@
 import "server-only";
 import { Resend } from "resend";
 
-const apiKey = process.env.RESEND_API_KEY;
+let _client: Resend | null = null;
+let _warned = false;
 
-if (!apiKey) {
-  throw new Error("RESEND_API_KEY is not defined — add it to .env to send transactional email.");
+/**
+ * Lazily-built Resend client. Returns `null` (after one warning) when
+ * RESEND_API_KEY is not set, so importing this module — which Next.js also
+ * does at build time while collecting page data — never throws. Email senders
+ * must treat a `null` client as "email disabled" and continue.
+ */
+export function getResend(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    if (!_warned) {
+      _warned = true;
+      console.warn("[email] RESEND_API_KEY is not set — transactional email is disabled.");
+    }
+    return null;
+  }
+  if (!_client) {
+    _client = new Resend(apiKey);
+  }
+  return _client;
 }
-
-export const resend = new Resend(apiKey);

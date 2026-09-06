@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { KeyRound, Loader2, CheckCircle2, AlertCircle, LogOut, ShieldCheck, Sparkles } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, LogOut, ShieldCheck, Sparkles } from "lucide-react";
+import { UkuuLogoMark } from "@/components/landing/Header";
 
 type Props = {
   /** Called once the workspace is unlocked so the parent can re-render the app. */
@@ -87,8 +88,8 @@ export default function AccessGate({ onActivated, checking = false }: Props) {
       <div style={{ position: "relative", width: "100%", maxWidth: 460 }}>
         {/* brand */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 34 }}>
-          <span style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#7B2FBE,#A78BFA)", display: "grid", placeItems: "center", boxShadow: "0 8px 24px rgba(123,47,190,.45)" }}>
-            <KeyRound size={20} strokeWidth={2} />
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#7B2FBE,#A78BFA)", display: "grid", placeItems: "center", boxShadow: "0 8px 24px rgba(123,47,190,.45)", flexShrink: 0 }}>
+            <UkuuLogoMark size={24} white />
           </span>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: ".02em" }}>UKUU HR</div>

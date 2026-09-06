@@ -179,7 +179,7 @@ export default function ShiftsView({
                 <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13 }}>
                   <Pencil size={14} /> Edit
                 </button>
-                <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13, color: "#DC2626" }}>
+                <button type="button" className="bk-btn bk-btn-secondary" style={{ flex: 1, minHeight: 38, padding: "8px 0", fontSize: 13, color: "var(--bk-accent)" }}>
                   <Trash2 size={14} /> Delete
                 </button>
               </div>

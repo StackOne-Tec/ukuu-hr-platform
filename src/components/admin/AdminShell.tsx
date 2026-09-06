@@ -119,18 +119,39 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
   const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; read: boolean; createdAt: string }[]>([]);
   const [unread, setUnread] = useState(0);
 
-  /* ── subscription gate: every account page verifies the workspace license ── */
-  const [access, setAccess] = useState<{ checked: boolean; locked: boolean }>({ checked: IS_ADMIN_PLATFORM, locked: false });
+  /* ── subscription gate ──
+     Every page load re-verifies the workspace license against the cloud, but
+     the check is silent: the app renders immediately and the fetch runs in the
+     background. Only a confirmed locked verdict swaps in the activation gate.
+     The last verdict is cached in sessionStorage so a locked workspace shows
+     the gate right away (no content flash) and a valid one never sees a
+     loader while the check re-runs. */
+  const [locked, setLocked] = useState<boolean>(() => {
+    if (IS_ADMIN_PLATFORM) return false;
+    try {
+      return typeof window !== "undefined" && sessionStorage.getItem("ukuu_license_locked") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const applyAccess = useCallback((isLocked: boolean) => {
+    setLocked(isLocked);
+    try {
+      sessionStorage.setItem("ukuu_license_locked", isLocked ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const refreshAccess = useCallback(() => {
     if (IS_ADMIN_PLATFORM) return;
     fetch("/api/license/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const s = d?.status;
-        setAccess({ checked: true, locked: Boolean(s?.enforce && s?.locked) });
+        applyAccess(Boolean(s?.enforce && s?.locked));
       })
-      .catch(() => setAccess({ checked: true, locked: false }));
-  }, []);
+      .catch(() => applyAccess(false));
+  }, [applyAccess]);
   useEffect(() => {
     refreshAccess();
   }, [refreshAccess]);
@@ -221,10 +242,9 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
     return renderLeaf(entry);
   };
 
-  /* While the license check is in flight, show a branded loader instead of the
-     app so users never glimpse the workspace before the gate resolves. */
-  if (!access.checked) return <AccessGate checking />;
-  if (access.locked) return <AccessGate onActivated={refreshAccess} />;
+  /* License re-checks on every page load silently — never block the app on it.
+     Only a confirmed locked verdict shows the activation gate. */
+  if (locked) return <AccessGate onActivated={refreshAccess} />;
 
   return (
     <div className="bk-admin-body">

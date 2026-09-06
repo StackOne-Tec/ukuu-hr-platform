@@ -5,17 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
-  Building,
   Check,
   CheckCircle2,
   Eye,
   EyeOff,
-  KeyRound,
   Loader2,
   Lock,
   Mail,
-  ShieldCheck,
-  Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UkuuLogoMark } from "@/components/landing/Header";
@@ -130,7 +126,9 @@ export default function BridgeLogin() {
           kind: "success",
           text: `Authenticated${data.account?.name ? ` — welcome, ${data.account.name}` : ""}! Opening workspace…`,
         });
-        window.setTimeout(() => router.push("/bridge/dashboard"), 1200);
+        /* brief enough to register the success banner, fast enough that the
+           workspace feels instant after auth succeeds */
+        window.setTimeout(() => router.push("/bridge/dashboard"), 250);
       } catch (err) {
         setBanner({
           kind: "error",
@@ -141,19 +139,6 @@ export default function BridgeLogin() {
       }
     },
     [loading, done, email, password, remember, router]
-  );
-
-  const onSso = useCallback(
-    (kind: "sso" | "fido2") => {
-      toast({
-        title: kind === "sso" ? "Cloud SSO isn't configured yet" : "FIDO2 keys aren't enrolled",
-        description:
-          kind === "sso"
-            ? "Enterprise SSO (Okta / Azure AD / SAML) needs an IdP setup in this demo — use your cloud credentials."
-            : "WebAuthn / YubiKey enrollment is handled by your cloud administrator in this demo.",
-      });
-    },
-    [toast]
   );
 
   const onForgot = useCallback(() => {
@@ -221,23 +206,6 @@ export default function BridgeLogin() {
                   <span className="au-status-dot" />
                   All systems operational
                 </span>
-              </div>
-
-              {/* gateway connectivity pill */}
-              <div className="flex items-center justify-between rounded-full bg-br-surface-container-low px-3 py-1 shadow-inner" style={{ marginBottom: 22 }}>
-                <div className="flex items-center gap-1">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-br-tertiary opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-br-primary" />
-                  </span>
-                  <span className="font-br-mono text-br-code-mono-sm text-br-on-surface">
-                    Cloud Gateway: Connected (us-east-1)
-                  </span>
-                </div>
-                <div className="flex items-center gap-0.5 font-br-mono text-br-code-mono-sm text-br-tertiary">
-                  <Zap size={12} />
-                  <span>24ms</span>
-                </div>
               </div>
 
               {/* heading — same structure as the cloud card */}
@@ -352,55 +320,12 @@ export default function BridgeLogin() {
                     </>
                   ) : (
                     <>
-                      Sign In to Bridge Daemon
+                      Sign In to Bridge
                       <ArrowRight size={17} strokeWidth={2.4} />
                     </>
                   )}
                 </button>
               </form>
-
-              {/* secure sign-in options */}
-              <div className="au-divider">
-                <span className="au-divider-text">OR SECURE SIGN-IN WITH</span>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button
-                  type="button"
-                  disabled={loading || done}
-                  className="au-btn-google"
-                  onClick={() => onSso("sso")}
-                  style={{ justifyContent: "flex-start", padding: "0 16px" }}
-                >
-                  <Building size={18} strokeWidth={1.9} />
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                    <span style={{ fontWeight: 700 }}>Cloud SSO</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.75 }}>Okta · Azure AD · SAML</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  disabled={loading || done}
-                  className="au-btn-google"
-                  onClick={() => onSso("fido2")}
-                  style={{ justifyContent: "flex-start", padding: "0 16px" }}
-                >
-                  <KeyRound size={18} strokeWidth={1.9} />
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                    <span style={{ fontWeight: 700 }}>FIDO2 / Key</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.75 }}>WebAuthn · YubiKey</span>
-                  </span>
-                </button>
-              </div>
-
-              {/* security footnote */}
-              <div
-                className="au-cardfoot"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap" }}
-              >
-                <ShieldCheck size={12.5} />
-                End-to-end encrypted with TLS 1.3 · Local audit log enabled
-              </div>
             </div>
           </div>
         </div>

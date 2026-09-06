@@ -13,29 +13,16 @@ export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-function nameFromEmail(email: string): string {
-  const local = email.split("@")[0] ?? "";
-  const parts = local
-    .split(/[._\-+]+/)
-    .filter(Boolean)
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
-  if (parts.length === 0) return "Ukuu User";
-  if (parts.length === 1) return `${parts[0]} User`;
-  return parts.slice(0, 2).join(" ");
-}
-
 /*
  * POST /api/v1/bridge/login
  * Sign the Bridge desktop app into the cloud with the account credentials.
  * Body: { email, password }
  *
  * Auth rules are intentionally IDENTICAL to the cloud sign-in (/api/auth/login):
- * any syntactically valid email + password of at least 6 characters is accepted
- * (demo/mock auth), so the credentials that work on the cloud always work here.
- * The password is stored on the account on every sign-in, and an unknown email
- * is provisioned onto the demo tenant exactly like the cloud does — no account
- * can be left behind with credentials that work in one place but not the other.
- * Swap both endpoints over to a real identity provider together when one lands.
+ * the typed password must match the credential stored on the account — unknown
+ * emails and wrong passwords are rejected with the same generic error (no
+ * auto-provisioning, no write-through). Swap both endpoints over to a real
+ * identity provider together when one lands.
  *
  * Returns the (one-time) Bridge session token + account / organization /
  * subscription state so the desktop app can show the dashboard when the
@@ -70,28 +57,15 @@ export async function POST(req: Request) {
   try {
     const demo = await ensureDemoOrg();
 
-    // Mirror the cloud: an unknown email with a valid password provisions an
-    // account on the shared demo tenant, so any credentials that would sign in
-    // on the cloud sign in here too.
-    let account = await db.userAccount.findUnique({ where: { email } });
-    if (!account) {
-      account = await db.userAccount.create({
-        data: {
-          email,
-          name: nameFromEmail(email),
-          organizationId: demo?.id ?? null,
-          role: "Admin",
-          passwordHash: password,
-        },
-      });
-    } else if (password) {
-      // Write-through, same as /api/auth/login: keep the stored password in
-      // sync with the credentials the user signs in with (plaintext mock auth —
-      // the whole platform uses this convention until a real IdP lands).
-      await db.userAccount.update({
-        where: { id: account.id },
-        data: { passwordHash: password },
-      });
+    // Real verification, identical to the cloud: the password must match the
+    // credential stored on the account. Same generic error for unknown email
+    // and wrong password; no auto-provisioning and no write-through here.
+    const account = await db.userAccount.findUnique({ where: { email } });
+    if (!account || !account.passwordHash || account.passwordHash !== password) {
+      return NextResponse.json(
+        { ok: false, error: "Incorrect email or password." },
+        { status: 401 }
+      );
     }
 
     if (!account.isActive) {

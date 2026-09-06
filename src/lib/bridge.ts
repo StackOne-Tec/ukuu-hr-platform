@@ -44,7 +44,7 @@ export function verifyPassword(provided: string, stored: string | null | undefin
 
 export type SubscriptionInfo = {
   plan: string;
-  status: string; // Active | Trial | Expired | Revoked | Inactive
+  status: string; // Active | Expired | Revoked | Inactive
   valid: boolean;
   expiresAt: string | null;
   reason: string | null;
@@ -53,36 +53,40 @@ export type SubscriptionInfo = {
 type OrgLike = { plan: string | null; trialEndsAt: Date | null };
 type LicenseLike = { plan: string | null; status: string | null; expiresAt: Date | null } | null;
 
-/* A license code (when present) is authoritative: it must be Active and not
-   expired. Without one, the org plan governs — anything but an ended Trial is
-   valid. */
+/* Subscription status is resolved from the SAME source of truth as the web
+   application console: a workspace is active while it holds a LicenseCode that
+   is status "Active" and not expired. LicenseCodes are provisioned by
+   redeeming an access code (Coupon) in the web app, so a workspace without one
+   is not valid — exactly like the console's AccessGate.
+
+   The org plan / trial window is display metadata only: it never grants a
+   subscription on its own, because the web application overall doesn't treat a
+   bare trial as active either. Keeping one rule here (and in /api/license/
+   status) guarantees the desktop app and the web app are always in sync. */
 export function subscriptionInfo(org: OrgLike, license: LicenseLike): SubscriptionInfo {
-  if (license) {
-    const plan = license.plan || org.plan || "Trial";
-    const expired = license.expiresAt ? license.expiresAt.getTime() <= Date.now() : false;
-    const active = (license.status ?? "Active") === "Active";
-    const valid = active && !expired;
+  if (!license) {
     return {
-      plan,
-      status: valid ? "Active" : active ? "Expired" : license.status || "Inactive",
-      valid,
-      expiresAt: license.expiresAt ? license.expiresAt.toISOString() : null,
-      reason: valid
-        ? null
-        : active
-          ? "Your subscription has expired — renew it to keep the desktop app connected."
-          : "Your license is not active — contact your administrator.",
+      plan: org.plan || "Trial",
+      status: "Inactive",
+      valid: false,
+      expiresAt: org.trialEndsAt ? org.trialEndsAt.toISOString() : null,
+      reason: "Your workspace hasn't been activated — redeem an access code in the web app to unlock the desktop app.",
     };
   }
-  const plan = org.plan || "Trial";
-  const ended = org.trialEndsAt ? org.trialEndsAt.getTime() <= Date.now() : false;
-  const valid = plan !== "Trial" || !org.trialEndsAt || !ended;
+  const plan = license.plan || org.plan || "Trial";
+  const expired = license.expiresAt ? license.expiresAt.getTime() <= Date.now() : false;
+  const active = (license.status ?? "Active") === "Active";
+  const valid = active && !expired;
   return {
     plan,
-    status: plan === "Trial" ? (valid ? "Trial" : "Expired") : "Active",
+    status: valid ? "Active" : active ? "Expired" : license.status || "Inactive",
     valid,
-    expiresAt: org.trialEndsAt ? org.trialEndsAt.toISOString() : null,
-    reason: valid ? null : "Your free trial has ended — choose a plan to continue using the desktop app.",
+    expiresAt: license.expiresAt ? license.expiresAt.toISOString() : null,
+    reason: valid
+      ? null
+      : active
+        ? "Your subscription has expired — renew it in the web app to keep the desktop app connected."
+        : "Your license is not active — contact your administrator or redeem a new access code in the web app.",
   };
 }
 
