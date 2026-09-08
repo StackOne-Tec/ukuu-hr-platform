@@ -63,7 +63,7 @@ export function Download() {
               <MIcon name="laptop_mac" size={26} />
             </div>
             <h3>macOS</h3>
-            <p>macOS 11+ · Apple Silicon (M1/M2/M3) — Drag-to-install .dmg</p>
+            <p>macOS 11+ · Apple Silicon &amp; Intel (x64) — Drag-to-install .dmg</p>
             <a
               className="lp-dl-btn"
               href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-macOS-arm64.dmg"
@@ -75,7 +75,7 @@ export function Download() {
             </a>
             <a
               className="lp-dl-btn lp-dl-btn--sub"
-              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.1/UkuuHr-macOS-x64.dmg"
+              href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-macOS-x64.dmg"
               target="_blank"
               rel="noreferrer"
             >

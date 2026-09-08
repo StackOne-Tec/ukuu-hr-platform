@@ -24,10 +24,8 @@ import {
   User,
   Users,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { HOME_HREF } from "@/lib/platform"
 import { SignupSidebar } from "./SignupSidebar"
-import { GoogleLogo } from "./google-logo"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -79,14 +77,12 @@ const INITIAL: Form = {
  */
 export default function SignupExperience() {
   const router = useRouter()
-  const { toast } = useToast()
 
   const [form, setForm] = useState<Form>(INITIAL)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPw, setShowPw] = useState(false)
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark">("light")
 
@@ -201,17 +197,6 @@ export default function SignupExperience() {
     },
     [loading, done, validate, form, router]
   )
-
-  const onGoogle = useCallback(async () => {
-    if (googleLoading || loading || done) return
-    setGoogleLoading(true)
-    await new Promise((r) => setTimeout(r, 750))
-    setGoogleLoading(false)
-    toast({
-      title: "SSO isn't configured yet",
-      description: "Google sign-up needs OAuth credentials in this demo — use the form for now.",
-    })
-  }, [googleLoading, loading, done, toast])
 
   /* ---------- render ---------- */
   return (
@@ -611,24 +596,6 @@ export default function SignupExperience() {
                     <ArrowRight size={17} strokeWidth={2.4} />
                   </>
                 )}
-              </button>
-
-              <div className="sg-divider">
-                <span className="sg-divider-text">OR CONTINUE WITH</span>
-              </div>
-
-              <button
-                type="button"
-                className="sg-google"
-                onClick={onGoogle}
-                disabled={googleLoading || loading || done}
-              >
-                {googleLoading ? (
-                  <Loader2 size={18} className="sg-spinner" />
-                ) : (
-                  <GoogleLogo size={18} />
-                )}
-                {googleLoading ? "Redirecting to Google…" : "Continue with Google"}
               </button>
 
               <div className="sg-benefits">

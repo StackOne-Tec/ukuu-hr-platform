@@ -3,7 +3,6 @@ import "./landing.css"
 import { Header, ThemeToggle } from "@/components/landing/Header"
 import { Hero } from "@/components/landing/Hero"
 import {
-  TrustStrip,
   Features,
   Metrics,
   Workflow,
@@ -13,7 +12,6 @@ import { Download, Deploy } from "@/components/landing/Sections2"
 import {
   Stats,
   Compare,
-  Pricing,
   Faq,
   Founders,
   Cta,
@@ -27,7 +25,6 @@ export default function Home() {
       <ThemeToggle />
       <main>
         <Hero />
-        <TrustStrip />
         <Features />
         <Metrics />
         <Workflow />
@@ -36,7 +33,6 @@ export default function Home() {
         <Deploy />
         <Stats />
         <Compare />
-        <Pricing />
         <Faq />
         <Founders />
         <Cta />

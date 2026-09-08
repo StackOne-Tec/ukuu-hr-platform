@@ -13,9 +13,9 @@ A modern HR management SaaS application built with Next.js, featuring a marketin
 ## Features
 
 - **Landing page** (`/`) — hero, feature overview, pricing tiers, and CTA sections
-- **Authentication** (`/login`, `/signup`) — split-screen brand panel + form experience with sign-in / sign-up / forgot-password modes, password strength meter, show/hide toggle, remember-me, light/dark theme, and mock Google SSO
+- **Authentication** (`/login`, `/signup`) — split-screen brand panel + form experience with sign-in / sign-up / forgot-password modes, password strength meter, show/hide toggle, remember-me, light/dark theme, and Google OAuth sign-in
 - **Dashboard** (`/dashboard`) — HR admin overview with stats, charts, tables, and module navigation
-- **Mock auth API** (`/api/auth/*`) — login / register / forgot endpoints returning session tokens, with safe internal redirect support (`?ReturnUrl=`)
+- **Auth API** (`/api/auth/*`) — login / register / forgot endpoints returning session tokens, plus Google OAuth start and callback routes
 - **Health check** (`/api/health`) — reports app status and database connectivity
 
 ## Getting started
@@ -52,7 +52,8 @@ src/lib/         # database and server utilities
 
 ## Notes
 
-Authentication endpoints are mock implementations intended for frontend development — replace them with a real identity provider before production use.
+Authentication uses the existing server-side web-session model. Google OAuth signs in existing Ukuu HR accounts by verified email; users must create their workspace through the normal signup form first.
+
 
 ## Deployment (Render)
 
@@ -60,7 +61,15 @@ The app is deployed on [Render](https://render.com) as a Node web service backed
 
 - **Build command**: `npm install && npm run build` (installs dependencies and produces the standalone Next.js server)
 - **Start command**: `node .next/standalone/server.js`
-- **Environment**: `DATABASE_URL` (internal connection string of the Render PostgreSQL instance), `NODE_VERSION`, `HOSTNAME=0.0.0.0`
+- **Environment**: `DATABASE_URL`, `NODE_VERSION`, `HOSTNAME=0.0.0.0`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`
 - **Health check**: `/api/health`
+
+For Google OAuth, register these exact authorized redirect URIs in Google Cloud Console:
+
+- `https://www.ukuuhr.com/api/auth/google/callback`
+- `https://portal.ukuuhr.com/api/auth/google/callback`
+- `http://localhost:3000/api/auth/google/callback` (local development)
+
+Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Render; keep the client secret out of `public/` and source control. Rotate the client secret if it has previously been exposed.
 
 The service auto-deploys from `main` on every push to [StackOne-Tec/ukuu-hr-platform](https://github.com/StackOne-Tec/ukuu-hr-platform).

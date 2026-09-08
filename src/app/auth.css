@@ -726,7 +726,7 @@
   animation: au-spin 0.8s linear infinite;
 }
 
-/* --- divider --- */
+/* --- Google OAuth option --- */
 .au-divider {
   display: flex;
   align-items: center;
@@ -750,7 +750,6 @@
   white-space: nowrap;
 }
 
-/* --- google button --- */
 .au-btn-google {
   width: 100%;
   height: 48px;
@@ -766,22 +765,14 @@
   justify-content: center;
   gap: 11px;
   cursor: pointer;
+  text-decoration: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, background 0.16s ease;
 }
 
-.au-btn-google:hover:not(:disabled) {
+.au-btn-google:hover {
   border-color: #cfc7e8;
   box-shadow: 0 8px 18px rgba(40, 25, 90, 0.09);
   transform: translateY(-1px);
-}
-
-.au-btn-google:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.au-btn-google:disabled {
-  opacity: 0.7;
-  cursor: wait;
 }
 
 /* --- card footer --- */
@@ -902,10 +893,24 @@
   border-color: #4a3780;
 }
 
-.au-root.au-dark .au-card {
-  background: #150d31;
-  border-color: rgba(167, 139, 250, 0.17);
-  box-shadow: 0 28px 56px -12px rgba(0, 0, 0, 0.55);
+.au-root.au-dark .au-divider::before,
+.au-root.au-dark .au-divider::after {
+  background: rgba(167, 139, 250, 0.18);
+}
+
+.au-root.au-dark .au-divider-text {
+  color: #8a83ae;
+}
+
+.au-root.au-dark .au-btn-google {
+  background: #1a1138;
+  border-color: #2e2058;
+  color: #d9d4f2;
+}
+
+.au-root.au-dark .au-btn-google:hover {
+  border-color: #4a3780;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
 .au-root.au-dark .au-card-h {
@@ -970,26 +975,6 @@
 
 .au-root.au-dark .au-check-label {
   color: #a39ec4;
-}
-
-.au-root.au-dark .au-divider::before,
-.au-root.au-dark .au-divider::after {
-  background: rgba(167, 139, 250, 0.18);
-}
-
-.au-root.au-dark .au-divider-text {
-  color: #8a83ae;
-}
-
-.au-root.au-dark .au-btn-google {
-  background: #1a1138;
-  border-color: #2e2058;
-  color: #d9d4f2;
-}
-
-.au-root.au-dark .au-btn-google:hover:not(:disabled) {
-  border-color: #4a3780;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
 .au-root.au-dark .au-cardfoot {
@@ -1217,6 +1202,11 @@
    Applied via `.au-root--admin` (NEXT_PUBLIC_PLATFORM=admin), so the
    user portal keeps its original look untouched.
    ════════════════════════════════════════════════════════════════════ */
+
+/* admin login uses the full viewport for the operator sign-in form */
+.au-shell--admin {
+  grid-template-columns: 1fr;
+}
 
 /* deep navy console panel instead of the purple HR panel */
 .au-root--admin .au-brand {

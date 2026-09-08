@@ -3,24 +3,6 @@
 import { MIcon } from "./icons"
 import { Reveal } from "./Reveal"
 
-export function TrustStrip() {
-  return (
-    <section className="lp-trust-strip">
-      <div className="lp-trust-strip-inner">
-        <span className="lp-muted">Trusted by teams in</span>
-        <span className="lp-flag-dot" style={{ background: "#009739" }} title="Zambia" />
-        <span style={{ fontWeight: 700 }}>Zambia</span>
-        <span className="lp-trust-divider">·</span>
-        <span className="lp-flag-dot" style={{ background: "#1EB53A" }} title="Tanzania" />
-        <span style={{ fontWeight: 700 }}>Tanzania</span>
-        <span className="lp-trust-divider">·</span>
-        <span className="lp-flag-dot" style={{ background: "#0077C8" }} title="Malawi" />
-        <span style={{ fontWeight: 700 }}>Malawi</span>
-      </div>
-    </section>
-  )
-}
-
 type Feature = {
   icon: "badge" | "schedule" | "event_available" | "view_timeline" | "security" | "analytics"
   title: string

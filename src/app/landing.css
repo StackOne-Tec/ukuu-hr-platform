@@ -206,18 +206,6 @@ body { background: #1A0F2E; }
   .lp-btn-hero-primary, .lp-btn-hero-secondary { width: 100%; justify-content: center; }
 }
 
-/* ═══ TRUST STRIP ═══ */
-.lp-trust-strip { background: var(--lp-surface); padding: 22px clamp(16px, 4vw, 64px); border-bottom: 1px solid var(--lp-surface-strong); }
-.lp-trust-strip-inner {
-  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
-  max-width: var(--lp-max); margin: 0 auto;
-  font-size: 15px; color: var(--lp-ink);
-}
-.lp-trust-strip-inner .lp-muted { color: rgba(45,27,105,0.6); margin-right: 4px; }
-.lp-flag-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 3px rgba(45,27,105,0.08); }
-.lp-trust-divider { color: rgba(45,27,105,0.3); margin: 0 8px; }
-.lp-trust-strip-inner strong { font-weight: 700; }
-
 /* ═══ SHARED SECTION HEADERS ═══ */
 .lp-section-eyebrow {
   font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
@@ -620,53 +608,6 @@ body { background: #1A0F2E; }
 .lp-compare-pane-inner { visibility: visible; }
 .lp-compare-hint { margin-top: 20px; font-size: 13px; color: rgba(255,255,255,0.4); }
 
-/* ═══ PRICING ═══ */
-.lp-pricing { background: var(--lp-body); padding: 120px clamp(16px, 5vw, 80px); }
-.lp-pricing-inner { max-width: var(--lp-max); margin: 0 auto; text-align: center; }
-.lp-pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px; align-items: stretch; }
-.lp-pricing-card {
-  position: relative; padding: 40px 32px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px;
-  display: flex; flex-direction: column; gap: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.lp-pricing-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
-.lp-pricing-card--featured {
-  background: linear-gradient(180deg, #25163F 0%, #4A3C68 100%);
-  border-color: #7B2FBE; color: #FCFBFF;
-  transform: scale(1.04); box-shadow: 0 24px 64px rgba(37, 22, 63, 0.5);
-}
-.lp-pricing-card--featured:hover { transform: scale(1.04) translateY(-4px); }
-.lp-pricing-badge {
-  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-  padding: 6px 14px; border-radius: 999px;
-  background: linear-gradient(135deg, #7B2FBE 0%, #A78BFA 100%);
-  color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  box-shadow: 0 4px 12px rgba(123, 47, 190, 0.4); white-space: nowrap;
-}
-.lp-pricing-name { font-size: 18px; font-weight: 700; color: #FCFBFF; letter-spacing: 0.02em; }
-.lp-pricing-price { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
-.lp-pricing-amount { font-size: 48px; font-weight: 800; color: #FCFBFF; letter-spacing: -0.03em; line-height: 1; }
-.lp-pricing-period { font-size: 14px; color: rgba(255,255,255,0.55); font-weight: 500; }
-.lp-pricing-features { list-style: none; padding: 0; margin: 16px 0 0; text-align: left; flex: 1; }
-.lp-pricing-features li { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 14.5px; color: rgba(243,240,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.05); }
-.lp-pricing-features li:last-child { border-bottom: none; }
-.lp-pricing-features svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--lp-green); }
-.lp-pricing-card--featured .lp-pricing-features svg { color: var(--lp-lavender); }
-.lp-pricing-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 14px 24px; border-radius: 12px; font-size: 15px; font-weight: 700;
-  text-decoration: none; transition: all 0.25s ease;
-  border: 1px solid rgba(255,255,255,0.18); color: #FCFBFF; background: transparent;
-}
-.lp-pricing-btn:hover { background: rgba(255,255,255,0.06); transform: translateY(-1px); }
-.lp-pricing-btn--featured {
-  background: linear-gradient(135deg, var(--lp-purple), var(--lp-lavender));
-  border: none; color: #fff; box-shadow: 0 8px 24px rgba(123,47,190,0.45);
-}
-.lp-pricing-btn--featured:hover { box-shadow: 0 14px 36px rgba(123,47,190,0.6); }
-@media (max-width: 960px) { .lp-pricing-grid { grid-template-columns: 1fr; max-width: 440px; margin-left: auto; margin-right: auto; } .lp-pricing-card--featured { transform: none; } .lp-pricing-card--featured:hover { transform: translateY(-4px); } }
-
 /* ═══ FAQ ═══ */
 .lp-faq { background: var(--lp-dark-2); padding: 120px clamp(16px, 5vw, 80px); }
 .lp-faq-inner { max-width: 820px; margin: 0 auto; }
@@ -760,7 +701,6 @@ body { background: #1A0F2E; }
 .lp-footer-inner { max-width: var(--lp-max); margin: 0 auto; }
 .lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 64px; margin-bottom: 48px; }
 .lp-footer-brand p { font-size: 14px; line-height: 1.7; color: rgba(243,240,255,0.55); margin: 16px 0 0; max-width: 380px; }
-.lp-footer-tech { font-size: 12.5px; color: rgba(243,240,255,0.35); margin-top: 14px; }
 .lp-footer-col h4 { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #fff; margin: 0 0 18px; }
 .lp-footer-col a { display: block; font-size: 14px; color: rgba(243,240,255,0.6); text-decoration: none; padding: 5px 0; transition: color 0.2s ease; }
 .lp-footer-col a:hover { color: var(--lp-lavender); }
