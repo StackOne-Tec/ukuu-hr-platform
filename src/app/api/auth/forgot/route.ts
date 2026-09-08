@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
-import { sendEmail, passwordResetEmailHtml } from "@/lib/email"
+import crypto from "node:crypto"
+import { sendEmail, passwordResetEmailHtml, emailDeliveryMode, devMailboxEnabled } from "@/lib/email"
 import { db } from "@/lib/db"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const RESET_MINUTES = 30
 
 /**
  * Password-recovery endpoint.
  * Always responds positively (does not leak whether an account exists), but
- * sends the reset email via Resend when the address belongs to a known user.
- * Demo accounts don't store passwords, so the reset link points at the sign-in
- * page — swap in a real token-based reset flow to make it fully functional.
+ * generates a single-use, 30-minute reset token and emails a real reset link
+ * (/reset-password?token=...) when the address belongs to a known user.
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
@@ -34,16 +35,41 @@ export async function POST(req: Request) {
     .findUnique({ where: { email }, select: { name: true } })
     .catch(() => null)
   if (user) {
-    const origin = new URL(req.url).origin
-    void sendEmail(
-      email,
-      "Reset your Ukuu HR password",
-      passwordResetEmailHtml(user.name ?? "", `${origin}/login`)
-    )
+    // Invalidate any previous, still-unused tokens for this address so only
+    // the newest requested link works.
+    await db.passwordResetToken
+      .deleteMany({ where: { email, usedAt: null } })
+      .catch(() => {})
+
+    const rawToken = crypto.randomBytes(32).toString("hex")
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex")
+    const expiresAt = new Date(Date.now() + RESET_MINUTES * 60_000)
+
+    const created = await db.passwordResetToken
+      .create({ data: { email, tokenHash, expiresAt } })
+      .catch(() => null)
+
+    if (created) {
+      const origin = new URL(req.url).origin
+      void sendEmail(
+        email,
+        "Reset your Ukuu HR password",
+        passwordResetEmailHtml(user.name ?? "", `${origin}/reset-password?token=${rawToken}`)
+      )
+    }
   }
 
   return NextResponse.json({
     ok: true,
+    // Global delivery-mode flag (same for every address — no account leak):
+    // "resend" → real provider; "outbox" → dev mailbox viewable; "unconfigured"
+    // → production without a provider (no public mailbox, admin action needed).
+    emailDelivery:
+      emailDeliveryMode() === "resend"
+        ? "resend"
+        : devMailboxEnabled()
+          ? "outbox"
+          : "unconfigured",
     message: `If an account exists for ${email}, a password reset link is on its way.`,
   })
 }

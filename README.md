@@ -64,3 +64,29 @@ The app is deployed on [Render](https://render.com) as a Node web service backed
 - **Health check**: `/api/health`
 
 The service auto-deploys from `main` on every push to [StackOne-Tec/ukuu-hr-platform](https://github.com/StackOne-Tec/ukuu-hr-platform).
+
+### Database migrations (automatic)
+
+Schema migrations are applied automatically when the server boots (`src/instrumentation.ts`): the additive patches the current code expects — the `PasswordResetToken` and `EmailLog` tables that back the password-recovery flow, plus coupon-redemption columns — are created with `IF NOT EXISTS` statements, so re-running on every deploy is safe and existing data is untouched.
+
+For a brand-new PostgreSQL instance, the full schema (all 39 tables) can be applied manually against any `DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgresql://... npm run db:migrate
+```
+
+The complete idempotent DDL lives in `scripts/schema.sql`; it is safe to re-run at any time.
+
+### Transactional email (password reset, invites, notifications)
+
+Email is delivered through [Resend](https://resend.com). Set `RESEND_API_KEY` in the Render dashboard (Environment tab) to enable real delivery:
+
+1. Create a free Resend account (100 emails/day on the free tier).
+2. Copy the API key into `RESEND_API_KEY` on the Render web service.
+3. Optionally verify a sending domain at resend.com/domains and set `EMAIL_FROM` (until then Resend only delivers to the account owner's address, using the shared `onboarding@resend.dev` sender).
+
+When `RESEND_API_KEY` is unset the app still records every message in the `EmailLog` table (audit trail), and in development the Dev Mailbox at `/dev/mailbox` shows them so email flows can be tested end-to-end. In production the Dev Mailbox is disabled by design — captured messages contain live password-reset links and must never be publicly readable (`DEV_MAILBOX_ENABLED` overrides for private staging boxes only).
+
+### Keeping the free instance awake
+
+Render's free web services spin down after ~15 minutes without inbound traffic, which makes the first request after idling slow (cold start). To keep the instance (and therefore the connected database sessions) always active, ping the health check from an external monitor on a schedule tighter than the spin-down window — e.g. [UptimeRobot](https://uptimerobot.com) (free, 5-minute interval) or [cron-job.org](https://cron-job.org) (free, 1-minute interval) pointed at `https://<your-service>.onrender.com/api/health`.

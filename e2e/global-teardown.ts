@@ -1,5 +1,5 @@
 import { runCleanup } from "./runner";
 
-export default async function () {
+export default async function globalTeardown() {
   await runCleanup();
 }

@@ -21,13 +21,11 @@ export default function PayrollCalculatorPage() {
     const nAPSA = Math.min(g * 0.05, 9870);
     const nhima = g * 0.01;
     const taxable = g - nAPSA;
-    let paye = 0;
     const bandDetails = BANDS.map((b) => {
       const bandTaxable = Math.max(0, Math.min(taxable, b.to) - b.from);
-      const tax = bandTaxable * b.rate;
-      paye += tax;
-      return { ...b, taxable: bandTaxable, tax };
+      return { ...b, taxable: bandTaxable, tax: bandTaxable * b.rate };
     });
+    const paye = bandDetails.reduce((sum, b) => sum + b.tax, 0);
     const net = g - nAPSA - nhima - paye - deductions;
     return { g, nAPSA, nhima, taxable, paye, net, bandDetails };
   }, [gross, allowances, deductions]);

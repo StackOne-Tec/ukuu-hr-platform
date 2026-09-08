@@ -80,6 +80,7 @@ export default function AuthExperience() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [delivery, setDelivery] = useState<"resend" | "outbox" | "unconfigured">("outbox")
 
   const emailRef = useRef<HTMLInputElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -195,7 +196,7 @@ export default function AuthExperience() {
           body: JSON.stringify(payload),
         })
         const data = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string; message?: string; user?: { name?: string; email?: string }; token?: string }
+          | { ok?: boolean; error?: string; message?: string; emailDelivery?: string; user?: { name?: string; email?: string }; token?: string }
           | null
 
         if (!res.ok || !data?.ok) {
@@ -204,6 +205,13 @@ export default function AuthExperience() {
 
         if (mode === "forgot") {
           setDone(true)
+          setDelivery(
+            data.emailDelivery === "resend"
+              ? "resend"
+              : data.emailDelivery === "unconfigured"
+                ? "unconfigured"
+                : "outbox"
+          )
           setBanner({ kind: "success", text: data.message ?? "Reset link sent." })
           return
         }
@@ -298,7 +306,11 @@ export default function AuthExperience() {
             <div className="au-card" key={done && mode === "forgot" ? "done" : mode}>
               <div className="au-swap">
                 {done && mode === "forgot" ? (
-                  <ForgotDone email={email.trim()} onBack={() => switchMode("signin")} />
+                  <ForgotDone
+                    email={email.trim()}
+                    delivery={delivery}
+                    onBack={() => switchMode("signin")}
+                  />
                 ) : (
                   <form onSubmit={onSubmit} noValidate>
                     {banner && (
@@ -638,7 +650,15 @@ export default function AuthExperience() {
 }
 
 /* ---------- forgot-password success state ---------- */
-function ForgotDone({ email, onBack }: { email: string; onBack: () => void }) {
+function ForgotDone({
+  email,
+  delivery,
+  onBack,
+}: {
+  email: string
+  delivery: "resend" | "outbox"
+  onBack: () => void
+}) {
   return (
     <div className="au-done">
       <div className="au-done-icon">
@@ -650,6 +670,29 @@ function ForgotDone({ email, onBack }: { email: string; onBack: () => void }) {
         <strong style={{ color: "inherit", fontWeight: 700 }}>{email}</strong>, a
         password reset link is on its way. It expires in 30 minutes.
       </p>
+      {delivery === "outbox" && (
+        <p className="au-done-note">
+          <Mail size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            This deployment has no email provider configured, so the message is
+            captured in the{" "}
+            <a href="/dev/mailbox" target="_blank" rel="noreferrer">
+              Dev&nbsp;Mailbox
+            </a>{" "}
+            — open it there to get your reset link.
+          </span>
+        </p>
+      )}
+      {delivery === "unconfigured" && (
+        <p className="au-done-note">
+          <Mail size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            Email delivery is not configured on this deployment. Ask your
+            administrator to set the <strong>RESEND_API_KEY</strong> environment
+            variable so password-reset emails can be sent to real inboxes.
+          </span>
+        </p>
+      )}
       <button type="button" className="au-btn-secondary" onClick={onBack}>
         <ArrowLeft size={16} strokeWidth={2.2} />
         Back to sign in

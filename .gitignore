@@ -57,10 +57,14 @@ server.log
 # local app artifacts (not part of the source)
 /db/
 /download/
-/scripts/
 /upload/
 /worklog.md
 /agent-ctx/
+
+# scripts/ IS part of the source (schema.sql, migrate.mjs);
+# only its local runtime artifacts are ignored:
+/scripts/*.log
+/scripts/*.pid
 --full-page
 *.pid
 # admin-mode dev build dir (runs alongside .next)

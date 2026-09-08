@@ -13,25 +13,25 @@ function Donut({ data, size = 150 }: { data: { name: string; count: number }[]; 
   const total = data.reduce((s, d) => s + d.count, 0) || 1;
   const r = size / 2 - 12;
   const c = 2 * Math.PI * r;
-  let offset = 0;
+  /* precompute fractions and cumulative offsets before JSX so no variable is
+     mutated while rendering (react-hooks/immutability) */
+  const fracs = data.map((d) => d.count / total);
+  const offsets = fracs.map((_, i) =>
+    fracs.slice(0, i).reduce((sum, f) => sum + f, 0)
+  );
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--bk-muted)" strokeWidth={14} />
-      {data.map((d, i) => {
-        const frac = d.count / total;
-        const el = (
-          <circle
-            key={d.name}
-            cx={size / 2} cy={size / 2} r={r} fill="none"
-            stroke={COLORS[i % COLORS.length]} strokeWidth={14}
-            strokeDasharray={`${frac * c} ${c}`}
-            strokeDashoffset={-offset * c}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        );
-        offset += frac;
-        return el;
-      })}
+      {data.map((d, i) => (
+        <circle
+          key={d.name}
+          cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke={COLORS[i % COLORS.length]} strokeWidth={14}
+          strokeDasharray={`${fracs[i] * c} ${c}`}
+          strokeDashoffset={-offsets[i] * c}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      ))}
       <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 20, fontWeight: 800, fill: "var(--bk-ink)" }}>
         {total}
       </text>

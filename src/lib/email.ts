@@ -1,5 +1,6 @@
 import "server-only";
 import { getResend } from "@/lib/resend";
+import { db } from "@/lib/db";
 
 /**
  * Sending address. Until a domain is verified in Resend, only the shared
@@ -8,21 +9,78 @@ import { getResend } from "@/lib/resend";
  */
 const FROM = process.env.EMAIL_FROM ?? "Ukuu HR <onboarding@resend.dev>";
 
-export type SendResult = { ok: boolean; error?: string };
+export type SendResult = { ok: boolean; error?: string; outboxId?: string };
 
-/** Never throws — callers can fire-and-forget without breaking the request. */
+/**
+ * How email leaves this deployment:
+ * - "resend"  — a real provider is configured (RESEND_API_KEY set); messages
+ *               are delivered to real inboxes.
+ * - "outbox"  — sandbox/dev fallback; messages are captured in the local
+ *               outbox table and viewable at /dev/mailbox (Dev Mailbox).
+ */
+export function emailDeliveryMode(): "resend" | "outbox" {
+  return process.env.RESEND_API_KEY ? "resend" : "outbox";
+}
+
+/**
+ * Whether the Dev Mailbox (/dev/mailbox) is viewable on this deployment.
+ * The mailbox renders captured emails — including live password-reset links —
+ * so it must NEVER be public in production. It is enabled only in development
+ * (outbox mode), or in production when explicitly opted in with
+ * DEV_MAILBOX_ENABLED=true (e.g. a private staging box behind auth).
+ */
+export function devMailboxEnabled(): boolean {
+  if (process.env.DEV_MAILBOX_ENABLED === "true") return true;
+  if (process.env.NODE_ENV === "production") return false;
+  return emailDeliveryMode() === "outbox";
+}
+
+/**
+ * Never throws — callers can fire-and-forget without breaking the request.
+ * Every message is recorded in the outbox (EmailLog): when a provider is
+ * configured it is an audit trail of what was sent; when it is not, the
+ * outbox *is* the delivery target (Dev Mailbox at /dev/mailbox), so email
+ * flows remain testable end-to-end without provider credentials.
+ */
 export async function sendEmail(to: string, subject: string, html: string): Promise<SendResult> {
   const resend = getResend();
-  if (!resend) {
-    return { ok: false, error: "Email is not configured (RESEND_API_KEY missing)" };
+  let status: "sent" | "captured" | "failed" = resend ? "sent" : "captured";
+  let error: string | undefined;
+
+  if (resend) {
+    try {
+      const { error: sendError } = await resend.emails.send({ from: FROM, to, subject, html });
+      if (sendError) {
+        status = "failed";
+        error = sendError.message;
+      }
+    } catch (e) {
+      status = "failed";
+      error = e instanceof Error ? e.message : "Failed to send email";
+    }
+  } else {
+    error = "Email provider not configured (RESEND_API_KEY missing) — captured to local outbox instead.";
   }
+
+  let outboxId: string | undefined;
   try {
-    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    const row = (await db.emailLog.create({
+      data: {
+        toEmail: to,
+        subject,
+        html,
+        provider: resend ? "resend" : "outbox",
+        status,
+        error: status === "failed" ? (error ?? null) : null,
+      },
+    })) as { id?: string } | null;
+    outboxId = row?.id;
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to send email" };
+    console.error("[email] failed to record outbox entry:", e);
   }
+
+  if (status === "failed") return { ok: false, error, outboxId };
+  return { ok: true, outboxId };
 }
 
 const SHELL = (title: string, body: string) => `
@@ -138,7 +196,11 @@ export function passwordResetEmailHtml(name: string, resetUrl: string): string {
       </p>
       <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg,#7B2FBE,#6A24A8); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 22px; border-radius: 10px;">Reset password</a>
       <p style="font-size: 12px; color: #8b87a0; margin: 18px 0 0; line-height: 1.5;">
-        If you didn't request this, you can safely ignore this email.
+        This link expires in 30 minutes and can only be used once. If you didn't request this, you can safely ignore this email.
+      </p>
+      <p style="font-size: 12px; color: #8b87a0; margin: 12px 0 0; line-height: 1.5;">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        <a href="${resetUrl}" style="color: #7B2FBE; word-break: break-all;">${resetUrl}</a>
       </p>
     `
   );

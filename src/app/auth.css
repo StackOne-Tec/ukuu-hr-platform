@@ -847,6 +847,36 @@
   margin-right: auto;
 }
 
+/* sandbox hint shown when no email provider is configured */
+.au-done-note {
+  margin: 18px auto 0;
+  max-width: 360px;
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #7a6a1d;
+  background: #fdf6e3;
+  border: 1px solid #f0e2b6;
+  border-radius: 11px;
+  padding: 11px 14px;
+}
+.au-done-note a {
+  color: #a06a00;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.au-root.au-dark .au-done-note {
+  color: #d9c6ff;
+  background: rgba(123, 47, 190, 0.14);
+  border-color: rgba(123, 47, 190, 0.4);
+}
+.au-root.au-dark .au-done-note a {
+  color: #d9c6ff;
+}
+
 .au-btn-secondary {
   margin-top: 26px;
   width: 100%;

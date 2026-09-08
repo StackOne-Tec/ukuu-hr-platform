@@ -9,6 +9,7 @@
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "db:check": "node -e \"const { Pool } = require('pg'); const pool = new Pool({ connectionString: process.env.DATABASE_URL }); pool.query('SELECT 1').then(() => pool.end()).then(() => process.exit(0)).catch(() => pool.end().finally(() => process.exit(1)))\"",
+    "db:migrate": "node scripts/migrate.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"

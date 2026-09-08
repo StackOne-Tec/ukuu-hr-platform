@@ -73,7 +73,11 @@ export default function TourWalkthrough({ mode, collapsed }: { mode: "standard" 
   const pathname = usePathname();
   const router = useRouter();
   const stepKeyRef = useRef<string | null>(null);
-  stepKeyRef.current = tour ? tour.steps[idx].key : null;
+  /* keep the ref in sync in an effect (never during render) so the
+     scroll/resize listeners below always see the current step key */
+  useEffect(() => {
+    stepKeyRef.current = tour ? tour.steps[idx].key : null;
+  }, [tour, idx]);
 
   const close = useCallback(() => {
     setTour(null);
@@ -126,11 +130,17 @@ export default function TourWalkthrough({ mode, collapsed }: { mode: "standard" 
         setMissing(true);
       }
     };
-    setRect(null);
-    setMissing(false);
-    attempt();
+    /* defer the per-step reset + first locate so setState never runs
+       synchronously in the effect body (react-hooks/set-state-in-effect) */
+    const tick = window.setTimeout(() => {
+      if (cancelled) return;
+      setRect(null);
+      setMissing(false);
+      attempt();
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(tick);
     };
   }, [tour, idx, pathname, router]);
 

@@ -58,6 +58,8 @@ const tables: Record<string, string> = {
   jobOpening: "JobOpening",
   candidate: "Candidate",
   announcement: "Announcement",
+  passwordResetToken: "PasswordResetToken",
+  emailLog: "EmailLog",
 };
 
 type Where = Record<string, unknown>;
@@ -253,6 +255,7 @@ const updatedAtModels = new Set([
   "department",
   "employee",
   "leaveRequest",
+  "attendanceTolerance",
   "attendanceDevice",
   "hrPolicy",
   "jobOpening",
