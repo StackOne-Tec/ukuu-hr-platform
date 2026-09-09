@@ -1,0 +1,25 @@
+name: Keep preview alive
+
+# "Wakeupbot" — an external heartbeat that pings the Ukuu HR sandbox preview
+# URL every 5 minutes so the sandbox never hibernates and the domain stays
+# active around the clock. Inside the sandbox, scripts/watchdog.sh self-heals
+# the Firebase emulators + dev server whenever anything dies while awake.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the preview URL
+        run: |
+          URL="https://preview-chat-4f7735fd-1bb1-4508-9393-60e41c55a83a.space-z.ai/api/health"
+          code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$URL" || echo 000)"
+          echo "preview health probe: HTTP $code"
+          # Traffic itself is the keep-alive signal — any response (including
+          # 4xx/5xx) proves the sandbox answered. Never fail the run on status.
+          exit 0
