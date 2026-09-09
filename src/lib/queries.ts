@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { currentOrg } from "@/lib/session";
+import { currentOrg, getWebSession } from "@/lib/session";
 
 /* All helpers are defensive: if the database is unreachable they return
    empty/default shapes so pages still render. */
@@ -582,6 +582,10 @@ export async function getSettings() {
   return safe(async () => {
     const org = await currentOrg();
     const orgId = org?.id ?? "none";
+    const session = await getWebSession();
+    const me = session?.userId
+      ? await db.userAccount.findUnique({ where: { id: session.userId } })
+      : null;
     const [users, apiKeys, departments] = await Promise.all([
       db.userAccount.findMany({ where: { organizationId: orgId } }),
       db.apiKey.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" } }),
@@ -589,6 +593,10 @@ export async function getSettings() {
       db.department.findMany({ where: { organizationId: orgId } }),
     ]);
     return {
+      me: {
+        email: me?.email ?? "",
+        emailVerified: me?.emailVerified === true,
+      },
       users: users.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, isActive: u.isActive, lastLoginAt: iso(u.lastLoginAt) })),
       departments: departments.map((d) => ({ id: d.id, name: d.name })),
       apiKeys: apiKeys.map((k) => ({
@@ -603,7 +611,7 @@ export async function getSettings() {
         rotatedAt: iso(k.rotatedAt),
       })),
     };
-  }, { users: [], apiKeys: [], departments: [] });
+  }, { me: { email: "", emailVerified: false }, users: [], apiKeys: [], departments: [] });
 }
 
 /* ───────────────────────── security / billing / super admin ───────────────────────── */

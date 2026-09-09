@@ -19,8 +19,9 @@ import {
   User,
 } from "lucide-react"
 import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
-import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
+import { BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
+import { UkuuLogoMark } from "@/components/landing/Header"
 
 type Mode = "signin" | "signup" | "forgot"
 type Banner = { kind: "success" | "error"; text: string } | null
@@ -277,14 +278,26 @@ export default function AuthExperience() {
           </div>
 
           <section style={{ width: "100%", display: "grid", justifyItems: "center" }}>
-            {!IS_ADMIN_PLATFORM && (
-              <div className="au-mobile-brand">
-                <BrandLogo />
-                <StatusBadge />
-              </div>
-            )}
-
             <div className="au-card" key={done && mode === "forgot" ? "done" : mode}>
+              {/* Brand lockup on the card itself — the admin console has no side
+                  panel, and mobile hides the panel, so the logo must live here. */}
+              <a
+                className="au-card-brand"
+                href={HOME_HREF}
+                aria-label={IS_ADMIN_PLATFORM ? "Ukuu platform admin home" : "Ukuu HR home"}
+              >
+                <span className="au-card-brand-badge">
+                  <UkuuLogoMark size={22} white />
+                </span>
+                <span className="au-card-brand-text">
+                  <span className="au-card-brand-name">
+                    {IS_ADMIN_PLATFORM ? "UKUU PLATFORM" : "UKUU HR"}
+                  </span>
+                  <span className="au-card-brand-sub">
+                    {IS_ADMIN_PLATFORM ? "Admin Console" : "HRMS Platform"}
+                  </span>
+                </span>
+              </a>
               <div className="au-swap">
                 {done && mode === "forgot" ? (
                   <ForgotDone email={email.trim()} onBack={() => switchMode("signin")} />

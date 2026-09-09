@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logDbError } from "@/lib/db-error";
 import { probeDevice } from "@/lib/isapi";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,8 @@ export async function POST(req: Request) {
           where: { id: deviceId },
           select: { id: true, name: true, vendor: true, model: true, ipAddress: true, apiKey: true },
         });
-      } catch {
+      } catch (e) {
+        logDbError(e, "attendance.import.deviceLookup");
         /* DB unreachable — fall through to manual IP handling */
       }
     }
@@ -65,7 +67,8 @@ export async function POST(req: Request) {
           details: `${vendor} device at ${host}:${port} connected (${info.model || info.deviceName})`,
         },
       });
-    } catch {
+    } catch (e) {
+      logDbError(e, "attendance.import.testConnection");
       /* DB unreachable — connection itself is what matters here */
     }
 
@@ -79,7 +82,8 @@ export async function POST(req: Request) {
           data: { status: "Error", lastError: message.slice(0, 300) },
         });
       }
-    } catch {
+    } catch (e) {
+      logDbError(e, "attendance.import.statusUpdate");
       /* best-effort */
     }
     return NextResponse.json({ ok: false, error: message }, { status: 502 });

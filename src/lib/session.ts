@@ -77,6 +77,34 @@ export async function destroyWebSession(): Promise<void> {
   }
 }
 
+/* ─── verified-email gate ────────────────────────────────────────────────── */
+
+/**
+ * Sensitive actions (API-key mutations, password changes, invites) require a
+ * verified email address. Returns `verified: true`, or the friendly error and
+ * HTTP status to return when the signed-in user hasn't verified yet. The
+ * stored `emailVerified` flag is refreshed from Firebase at every sign-in.
+ */
+export async function requireVerifiedEmail(): Promise<
+  { verified: true } | { verified: false; error: string; status: number }
+> {
+  const session = await getWebSession();
+  if (!session?.userId) {
+    return { verified: false, error: "Sign in to continue.", status: 401 };
+  }
+  const user = await db.userAccount.findUnique({ where: { id: session.userId } });
+  if (!user) {
+    return { verified: false, error: "Your account could not be found.", status: 401 };
+  }
+  if (user.emailVerified === true) return { verified: true };
+  return {
+    verified: false,
+    error:
+      "Verify your email address to use this feature — a verification link was sent when you signed up, and you can resend it from Settings.",
+    status: 403,
+  };
+}
+
 export type CurrentOrg = {
   id: string;
   name: string;

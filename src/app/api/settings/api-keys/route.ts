@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { currentOrg } from "@/lib/session";
+import { currentOrg, requireVerifiedEmail } from "@/lib/session";
 import { generateApiKey, hashApiKey, lastFour, maskApiKey, DEFAULT_SCOPES, scopesToLabels } from "@/lib/apikey";
+import { dbErrorMessage, logDbError } from "@/lib/db-error";
 
 export const dynamic = "force-dynamic";
-
-const DB_DOWN = "The database is temporarily unreachable. Please try again in a moment.";
 
 async function orgId(): Promise<string | null> {
   /* the signed-in user's tenant, falling back to the demo organization */
@@ -17,9 +16,10 @@ export async function GET() {
   let id: string | null;
   try {
     id = await orgId();
-  } catch {
-    // DB down — degrade like every other page in the app instead of leaking the raw error.
-    return NextResponse.json({ ok: true, keys: [], dbDown: true, error: DB_DOWN });
+  } catch (e) {
+    // DB down — degrade like every other page in the app, with a descriptive error.
+    logDbError(e, "settings.api-keys.get");
+    return NextResponse.json({ ok: true, keys: [], dbDown: true, error: dbErrorMessage(e) });
   }
   try {
     if (!id) return NextResponse.json({ ok: true, keys: [] });
@@ -42,12 +42,17 @@ export async function GET() {
         rotatedAt: k.rotatedAt ? k.rotatedAt.toISOString() : null,
       })),
     });
-  } catch {
-    return NextResponse.json({ ok: true, keys: [], dbDown: true, error: DB_DOWN });
+  } catch (e) {
+    logDbError(e, "settings.api-keys.get");
+    return NextResponse.json({ ok: true, keys: [], dbDown: true, error: dbErrorMessage(e) });
   }
 }
 
 export async function POST(req: Request) {
+  const gate = await requireVerifiedEmail();
+  if (!gate.verified) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
   try {
     const id = await orgId();
     if (!id) return NextResponse.json({ ok: false, error: "Organization not found" }, { status: 404 });
@@ -88,7 +93,8 @@ export async function POST(req: Request) {
       scopeLabels: scopesToLabels(scopes),
       createdAt: created.createdAt.toISOString(),
     });
-  } catch {
-    return NextResponse.json({ ok: false, error: DB_DOWN, dbDown: true }, { status: 503 });
+  } catch (e) {
+    logDbError(e, "settings.api-keys.create");
+    return NextResponse.json({ ok: false, error: dbErrorMessage(e), dbDown: true }, { status: 503 });
   }
 }

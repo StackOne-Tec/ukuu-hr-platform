@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { HOME_HREF } from "@/lib/platform"
 import { SignupSidebar } from "./SignupSidebar"
+import { UkuuLogoMark } from "@/components/landing/Header"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -222,21 +223,17 @@ export default function SignupExperience() {
           </div>
 
           <div className="sg-col">
-            <div className="sg-mobile-head">
-              <a href={HOME_HREF} className="sg-logo" aria-label="Ukuu HR home">
-                <span className="sg-logo-badge">
-                  <User size={20} strokeWidth={2} />
-                </span>
-                <span>
-                  <span className="sg-logo-name">UKUU HR</span>
-                  <span className="sg-logo-sub">HRMS Platform</span>
-                </span>
-              </a>
-              <span className="sg-mobile-status">
-                <span className="sg-mobile-status-dot" />
-                All systems operational
+            {/* Brand lockup on the card itself — the sidebar is desktop-only, so
+                the logo must live on the card for every viewport. */}
+            <a className="sg-card-brand" href={HOME_HREF} aria-label="Ukuu HR home">
+              <span className="sg-card-brand-badge">
+                <UkuuLogoMark size={22} white />
               </span>
-            </div>
+              <span className="sg-card-brand-text">
+                <span className="sg-card-brand-name">UKUU HR</span>
+                <span className="sg-card-brand-sub">HRMS Platform</span>
+              </span>
+            </a>
 
             <form onSubmit={onSubmit} noValidate>
               {banner && (

@@ -67,7 +67,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return NextResponse.json({ ok: true, device: serializeDevice(updated) });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to update the device right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to update the device right now.", "v1.bridge.devices.update") },
       { status: 503 }
     );
   }

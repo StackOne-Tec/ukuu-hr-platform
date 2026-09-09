@@ -69,3 +69,8 @@ server.log
 # playwright test output
 /test-results/
 /playwright-report/
+
+# Firebase service account key — contains a private key, never commit.
+UKUU Firebase Admin SDK.json
+*.service-account.json
+*serviceAccount*.json

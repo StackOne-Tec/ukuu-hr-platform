@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbErrorMessage, isKnownDbError, logDbError } from "@/lib/db-error";
 
 const CODE_RE = /^[A-Z0-9][A-Z0-9-]{1,39}$/;
 
@@ -76,10 +77,11 @@ export async function POST(req: Request) {
       ok: true,
       coupon: { id: coupon.id, code: coupon.code },
     });
-  } catch {
+  } catch (e) {
+    logDbError(e, "admin.coupons.create");
     return NextResponse.json(
-      { error: "A coupon with this code already exists, or the code could not be saved." },
-      { status: 409 }
+      { error: dbErrorMessage(e, "A coupon with this code already exists, or the code could not be saved.") },
+      { status: isKnownDbError(e) ? 503 : 409 }
     );
   }
 }
@@ -92,7 +94,11 @@ export async function DELETE(req: Request) {
   try {
     await db.coupon.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Coupon not found." }, { status: 404 });
+  } catch (e) {
+    logDbError(e, "admin.coupons.delete");
+    return NextResponse.json(
+      { error: dbErrorMessage(e, "Coupon not found.") },
+      { status: isKnownDbError(e) ? 503 : 404 }
+    );
   }
 }

@@ -94,7 +94,7 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to load attendance right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to load attendance right now.", "v1.bridge.attendance") },
       { status: 503 }
     );
   }

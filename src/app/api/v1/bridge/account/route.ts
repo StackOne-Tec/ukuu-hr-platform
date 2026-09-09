@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to load your account right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to load your account right now.", "v1.bridge.account") },
       { status: 503 }
     );
   }

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { logDbError } from "@/lib/db-error"
 import { ensureDemoOrg } from "@/lib/org"
 import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
+import { signInWithGoogleIdToken } from "@/lib/firebase-auth"
 import {
   decodeOAuthState,
   googleClientId,
@@ -56,7 +58,10 @@ export async function GET(req: NextRequest) {
       }),
       cache: "no-store",
     })
-    const token = (await tokenResponse.json().catch(() => null)) as { access_token?: string } | null
+    const token = (await tokenResponse.json().catch(() => null)) as {
+      access_token?: string
+      id_token?: string
+    } | null
     if (!tokenResponse.ok || !token?.access_token) {
       return redirectWithError(req, "Google sign-in could not be completed. Please try again.")
     }
@@ -81,6 +86,22 @@ export async function GET(req: NextRequest) {
       return redirectWithError(req, "No Ukuu HR account exists for that Google email. Create an account first.")
     }
 
+    // Mint the Google identity into Firebase Auth so the account also exists
+    // there (best-effort — Google's own token verification above is the trust
+    // anchor, so a failure here never blocks sign-in).
+    if (token.id_token) {
+      try {
+        const fb = await signInWithGoogleIdToken(token.id_token)
+        if (fb.uid && fb.uid !== user.firebaseUid) {
+          await db.userAccount
+            .update({ where: { id: user.id }, data: { firebaseUid: fb.uid } })
+            .catch(() => {})
+        }
+      } catch (e) {
+        logDbError(e, "auth.google.callback.mint")
+      }
+    }
+
     let organizationId = user.organizationId ?? null
     if (!organizationId) {
       const demo = await ensureDemoOrg()
@@ -101,7 +122,8 @@ export async function GET(req: NextRequest) {
     })
     res.cookies.delete(GOOGLE_STATE_COOKIE)
     return res
-  } catch {
+  } catch (e) {
+    logDbError(e, "auth.google.callback")
     return redirectWithError(req, "Google sign-in is temporarily unavailable. Please try again.")
   }
 }

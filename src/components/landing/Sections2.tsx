@@ -3,6 +3,7 @@
 import { MIcon } from "./icons"
 import { Reveal } from "./Reveal"
 import { UkuuLogoMark } from "./Header"
+import { WindowsLogo, AppleLogo } from "./brand-icons"
 
 export function Download() {
   return (
@@ -34,7 +35,7 @@ export function Download() {
               }}
             >
               <div className="lp-dl-icon">
-                <MIcon name="desktop_windows" size={26} />
+                <WindowsLogo size={26} />
               </div>
               <span className="lp-dl-verified">
                 <MIcon name="verified" size={14} />
@@ -60,7 +61,7 @@ export function Download() {
 
           <Reveal className="lp-dl-card" delay={80}>
             <div className="lp-dl-icon">
-              <MIcon name="laptop_mac" size={26} />
+              <AppleLogo size={26} />
             </div>
             <h3>macOS</h3>
             <p>macOS 11+ · Apple Silicon &amp; Intel (x64) — Drag-to-install .dmg</p>

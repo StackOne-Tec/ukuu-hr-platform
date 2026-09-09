@@ -363,6 +363,77 @@
   box-shadow: 0 24px 48px -12px rgba(46, 26, 102, 0.14);
 }
 
+/* centered brand lockup on the auth card (all platforms, all modes) */
+.au-card-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  color: #14101f;
+  text-decoration: none;
+}
+
+.au-card-brand-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 22px -8px rgba(109, 40, 217, 0.55);
+}
+
+.au-card-brand-name {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: inherit;
+}
+
+.au-card-brand-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.au-card-brand:hover .au-card-brand-badge {
+  transform: translateY(-1px);
+}
+
+.au-card-brand-badge {
+  transition: transform 0.16s ease;
+}
+
+/* admin console — gold identity, matching the console's accents */
+.au-root--admin .au-card-brand-badge {
+  background: linear-gradient(135deg, #dfb458 0%, #d39b3a 100%);
+  box-shadow: 0 10px 22px -8px rgba(211, 155, 58, 0.55);
+}
+
+.au-root--admin .au-card-brand-sub {
+  color: #b07f22;
+}
+
+/* dark card theme */
+.au-root.au-dark .au-card-brand {
+  color: #f5f2ff;
+}
+
+.au-root.au-dark .au-card-brand-sub {
+  color: #c4b5fd;
+}
+
+.au-root.au-dark.au-root--admin .au-card-brand-sub {
+  color: #d9b86a;
+}
+
 .au-swap {
   animation: au-swap 340ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
 }

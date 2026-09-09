@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to load devices right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to load devices right now.", "v1.bridge.devices.list") },
       { status: 503 }
     );
   }
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
     );
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to register the device right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to register the device right now.", "v1.bridge.devices.create") },
       { status: 503 }
     );
   }

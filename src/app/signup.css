@@ -407,6 +407,59 @@
   padding: 24px 24px 48px;
 }
 
+/* centered brand lockup on the signup card (all viewports) */
+.sg-card-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  color: #14101f;
+  text-decoration: none;
+}
+
+.sg-card-brand-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 22px -8px rgba(109, 40, 217, 0.55);
+  transition: transform 0.16s ease;
+}
+
+.sg-card-brand:hover .sg-card-brand-badge {
+  transform: translateY(-1px);
+}
+
+.sg-card-brand-name {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: inherit;
+}
+
+.sg-card-brand-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.sg-root.sg-dark .sg-card-brand {
+  color: #f5f2ff;
+}
+
+.sg-root.sg-dark .sg-card-brand-sub {
+  color: #c4b5fd;
+}
+
 .sg-mobile-head {
   display: none;
   align-items: center;

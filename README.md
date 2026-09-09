@@ -6,7 +6,7 @@ A modern HR management SaaS application built with Next.js, featuring a marketin
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router) + React 19 + TypeScript
 - **Styling**: Tailwind CSS + [shadcn/ui](https://ui.shadcn.com/) components
-- **Data layer**: direct PostgreSQL access via `pg` ([Render PostgreSQL](https://render.com/docs/databases))
+- **Data layer**: Cloud Firestore via the [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
 - **Server state**: TanStack Query
 - **Font**: Plus Jakarta Sans
 
@@ -24,11 +24,12 @@ A modern HR management SaaS application built with Next.js, featuring a marketin
 # install dependencies
 bun install
 
-# set up the database
-# .env -> DATABASE_URL=postgresql://user:password@host:5432/dbname
-# (locally you can use any Postgres instance; on Render this is set automatically)
+# set up Firebase (Cloud Firestore)
+# Firebase Console → Project settings → Service accounts → Generate new private key,
+# then either paste the JSON inline in .env:
+#   FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+# or set GOOGLE_APPLICATION_CREDENTIALS to the downloaded file path.
 cp .env.example .env
-bun run db:push
 
 # start the dev server
 bun run dev
@@ -52,17 +53,33 @@ src/lib/         # database and server utilities
 
 ## Notes
 
-Authentication uses the existing server-side web-session model. Google OAuth signs in existing Ukuu HR accounts by verified email; users must create their workspace through the normal signup form first.
+Authentication is tied to **Firebase Authentication**: credentials are verified
+by Firebase (Identity Toolkit REST for sign-in, Admin SDK for account creation)
+and passwords are never stored in our database — legacy plaintext accounts are
+migrated into Firebase automatically on their next successful sign-in, after
+which the stored plaintext is removed. Sessions keep the existing server-side
+web-session model (httpOnly cookies backed by hashed session rows). Google
+OAuth signs in existing Ukuu HR accounts by verified email and mints the Google
+identity into Firebase Auth; users must create their workspace through the
+normal signup form first. Enable the **Email/Password** sign-in method (and
+Google, for Google sign-in) under Firebase Console → Authentication → Sign-in
+method.
 
 
 ## Deployment (Render)
 
-The app is deployed on [Render](https://render.com) as a Node web service backed by a managed PostgreSQL instance (`ukuuhr-db`, region `oregon`).
+The app is deployed on [Render](https://render.com) as a Node web service backed by Cloud Firestore.
 
 - **Build command**: `npm install && npm run build` (installs dependencies and produces the standalone Next.js server)
 - **Start command**: `node .next/standalone/server.js`
-- **Environment**: `DATABASE_URL`, `NODE_VERSION`, `HOSTNAME=0.0.0.0`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`
+- **Environment**: `FIREBASE_SERVICE_ACCOUNT` (or `GOOGLE_APPLICATION_CREDENTIALS`), `FIREBASE_WEB_API_KEY` (required for sign-in), `NODE_VERSION`, `HOSTNAME=0.0.0.0`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`
 - **Health check**: `/api/health`
+
+> Firestore note: queries that combine a `where` filter with an `orderBy` need a
+> composite index. The first time such a query runs, Firestore returns a link in
+> the error to create it in the console — click through, or deploy
+> `firestore.indexes.json` with `firebase deploy --only firestore:indexes` if you
+> have the Firebase CLI configured.
 
 For Google OAuth, register these exact authorized redirect URIs in Google Cloud Console:
 

@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
+import { dbErrorMessage, logDbError } from "@/lib/db-error";
 
 export const API_KEY_PREFIX = "ukuu_live_";
 const KEY_BYTES = 24; // 48 hex chars after the prefix
@@ -108,13 +109,17 @@ export function scopeAllows(scopes: string, resource: string): boolean {
 
 /* Friendly user-facing message for an unexpected API failure. Never leak raw
    database driver internals (stack traces with turbopack paths, connection
-   errors, etc.) to callers. */
-export function apiErrorMessage(e: unknown, fallback = "Something went wrong. Please try again."): string {
-  if (!(e instanceof Error)) return fallback;
-  const m = e.message;
-  if (/closed the connection|connect .*timed out|ECONNREFUSED|ECONNRESET|ETIMEDOUT|reachable|database/i.test(m)) {
-    return "The database is temporarily unreachable. Please try again in a moment.";
-  }
-  if (/not found/i.test(m)) return "Record not found.";
-  return fallback;
+   errors, etc.) to callers. Database-related failures are mapped to
+   descriptive messages by dbErrorMessage; everything else falls back.
+
+   Every call also logs the real underlying cause (with the gRPC/Firestore
+   code, index link, and failing model.operation) under the route's context,
+   so an outage is diagnosable from the server log alone. */
+export function apiErrorMessage(
+  e: unknown,
+  fallback = "Something went wrong. Please try again.",
+  context = "api"
+): string {
+  logDbError(e, context);
+  return dbErrorMessage(e, fallback);
 }

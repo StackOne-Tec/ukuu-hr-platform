@@ -8,7 +8,7 @@ type Feature = {
   title: string
   desc: string
   chips: string[]
-  variant: "dark" | "accent" | "light"
+  variant: "dark" | "light"
   span?: "2" | "full"
 }
 
@@ -26,7 +26,7 @@ const FEATURES: Feature[] = [
     title: "Time & Attendance",
     desc: "Daily timesheets, clock-in/out, status filters — present, late, absent, on-leave, remote. Worked-hours computation built in.",
     chips: ["Clock-in", "Timesheets"],
-    variant: "accent",
+    variant: "dark",
   },
   {
     icon: "event_available",
@@ -41,6 +41,7 @@ const FEATURES: Feature[] = [
     desc: "Department × shift matrix with day-of-week bitmask. Morning, mid & night rotations with weekly coverage view.",
     chips: ["Rotations", "Coverage"],
     variant: "light",
+    span: "2",
   },
   {
     icon: "security",
@@ -48,7 +49,7 @@ const FEATURES: Feature[] = [
     desc: "Configurable MFA, SSO, IP allowlist, session timeout. Full audit log of every user-management action — export for SOC2 & ISO 27001 evidence.",
     chips: ["MFA", "SSO", "Audit Trail"],
     variant: "dark",
-    span: "2",
+    span: "full",
   },
   {
     icon: "analytics",

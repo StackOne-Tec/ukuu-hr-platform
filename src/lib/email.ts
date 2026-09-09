@@ -129,6 +129,23 @@ export function inviteEmailHtml(opts: {
   );
 }
 
+export function verifyEmailHtml(name: string, verifyUrl: string): string {
+  return SHELL(
+    "Verify your email address",
+    `
+      <p style="font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
+        Hi${name ? ` ${name}` : ""}, welcome to Ukuu HR. Please confirm this email address
+        to activate your account and unlock sensitive workspace actions
+        (API keys, password changes, invitations).
+      </p>
+      <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg,#7B2FBE,#6A24A8); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 22px; border-radius: 10px;">Verify email address</a>
+      <p style="font-size: 12px; color: #8b87a0; margin: 18px 0 0; line-height: 1.5;">
+        If you didn't create an account with this email, you can safely ignore this message.
+      </p>
+    `
+  );
+}
+
 export function passwordResetEmailHtml(name: string, resetUrl: string): string {
   return SHELL(
     "Reset your password",

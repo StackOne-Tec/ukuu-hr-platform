@@ -166,7 +166,7 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to sync the device right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to sync the device right now.", "v1.bridge.sync") },
       { status: 503 }
     );
   }
