@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbErrorMessage, isKnownDbError, logDbError } from "@/lib/db-error";
 
 const CODE_RE = /^[A-Z0-9][A-Z0-9-]{1,39}$/;
 
@@ -68,18 +69,58 @@ export async function POST(req: Request) {
     expiresAt = parsed;
   }
 
+  /* Firestore has no column defaults or unique indexes, so two integrity
+     rules live here instead:
+      1. redemption fields are stamped as explicit nulls — the single-use
+         claim in src/lib/license.ts matches `where: { id, redeemedAt: null }`
+         and a Firestore `== null` query does NOT match documents lacking the
+         field (mirrors the old Postgres `redeemedAt` column default).
+      2. `id` is set to the code itself, so the document id IS the code.
+         db.create() now uses an atomic `.create()` that fails when the id
+         already exists — Firestore's native stand-in for a unique constraint.
+         The findUnique pre-check below also rejects codes that collide with
+         legacy coupons (older docs whose ids are not the code). */
+  const existing = await db.coupon.findUnique({ where: { code } });
+  if (existing) {
+    return NextResponse.json(
+      { error: "A coupon with this code already exists." },
+      { status: 409 }
+    );
+  }
+
   try {
     const coupon = await db.coupon.create({
-      data: { code, discountPercent, plan, status, expiresAt, description },
+      data: {
+        id: code,
+        code,
+        discountPercent,
+        plan,
+        status,
+        expiresAt,
+        description,
+        redeemedAt: null,
+        redeemedByOrgId: null,
+        redeemedByOrgName: null,
+      },
     });
     return NextResponse.json({
       ok: true,
       coupon: { id: coupon.id, code: coupon.code },
     });
-  } catch {
+  } catch (e) {
+    logDbError(e, "admin.coupons.create");
+    /* `already exists` means the atomic .create() lost a race against a
+       concurrent request creating the same code — a 409 conflict, not an
+       outage. Everything else keeps the usual 503-for-known-db-error split. */
+    const message = e instanceof Error ? e.message : String(e);
+    const duplicate = /already[_ ]?exists/i.test(message);
     return NextResponse.json(
-      { error: "A coupon with this code already exists, or the code could not be saved." },
-      { status: 409 }
+      {
+        error: duplicate
+          ? "A coupon with this code already exists."
+          : dbErrorMessage(e, "The access code could not be saved."),
+      },
+      { status: duplicate ? 409 : isKnownDbError(e) ? 503 : 409 }
     );
   }
 }
@@ -92,7 +133,11 @@ export async function DELETE(req: Request) {
   try {
     await db.coupon.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Coupon not found." }, { status: 404 });
+  } catch (e) {
+    logDbError(e, "admin.coupons.delete");
+    return NextResponse.json(
+      { error: dbErrorMessage(e, "Coupon not found.") },
+      { status: isKnownDbError(e) ? 503 : 404 }
+    );
   }
 }

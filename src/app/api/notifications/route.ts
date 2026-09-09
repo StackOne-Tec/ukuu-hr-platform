@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { currentOrg } from "@/lib/session";
+import { dbErrorMessage, logDbError } from "@/lib/db-error";
 
 export const dynamic = "force-dynamic";
-
-const DB_DOWN = "The database is temporarily unreachable. Please try again in a moment.";
 
 /*
  * GET /api/notifications — recent in-app notifications + unread count.
@@ -35,8 +34,9 @@ export async function GET() {
         createdAt: n.createdAt.toISOString(),
       })),
     });
-  } catch {
-    return NextResponse.json({ ok: true, unread: 0, items: [], dbDown: true, error: DB_DOWN });
+  } catch (e) {
+    logDbError(e, "notifications.get");
+    return NextResponse.json({ ok: true, unread: 0, items: [], dbDown: true, error: dbErrorMessage(e) });
   }
 }
 
@@ -47,7 +47,8 @@ export async function POST() {
       await db.notification.updateMany({ where: { organizationId: org.id, read: false }, data: { read: true } });
     }
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false, error: DB_DOWN }, { status: 503 });
+  } catch (e) {
+    logDbError(e, "notifications.markRead");
+    return NextResponse.json({ ok: false, error: dbErrorMessage(e) }, { status: 503 });
   }
 }

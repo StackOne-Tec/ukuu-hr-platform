@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbErrorMessage, isKnownDbError, logDbError } from "@/lib/db-error";
 import { currentOrg } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +82,10 @@ export async function POST(req: Request) {
       .catch(() => {});
     return NextResponse.json({ ok: true, id: employee.id });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Failed to save employee" }, { status: 500 });
+    logDbError(e, "employees.create");
+    return NextResponse.json(
+      { ok: false, error: dbErrorMessage(e, "The employee could not be saved. Please try again.") },
+      { status: isKnownDbError(e) ? 503 : 500 }
+    );
   }
 }

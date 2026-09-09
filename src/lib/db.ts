@@ -1,24 +1,27 @@
 import "server-only";
-import { Pool, type PoolClient } from "pg";
-import { normalizeDatabaseUrl } from "@/lib/db-url";
+import {
+  Filter,
+  type Query,
+  type Transaction,
+  type WhereFilterOp,
+} from "firebase-admin/firestore";
+import { getDb } from "@/lib/firebase";
 
-const globalForDb = globalThis as unknown as { pool: Pool | undefined };
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ukuu HR data layer — Cloud Firestore.
 
-const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const parsedUrl = connectionString ? new URL(connectionString) : null;
-const isLocal = parsedUrl ? ["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname) : false;
+   This module exposes the same `db.<model>.<method>()` API the app has always
+   used (previously backed by PostgreSQL). Call sites are untouched: every
+   route, tour, and import goes through this proxy.
 
-const pool =
-  globalForDb.pool ??
-  new Pool({
-    connectionString,
-    max: 5,
-    connectionTimeoutMillis: 5_000,
-    idleTimeoutMillis: 30_000,
-    ssl: parsedUrl && !isLocal ? { rejectUnauthorized: false } : undefined,
-  });
-
-if (process.env.NODE_ENV !== "production") globalForDb.pool = pool;
+   Firestore notes:
+     - Each model maps to a top-level collection (e.g. "UserAccount").
+     - The document id is the row's `id` field.
+     - Query operators that Firestore cannot express (case-insensitive
+       contains / startsWith / endsWith, oversized in/not-in, nested NOT)
+       are applied as in-memory post-filters — semantics match the old SQL
+       (ILIKE is case-insensitive).
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 const tables: Record<string, string> = {
   organization: "Organization",
@@ -71,14 +74,10 @@ type QueryOptions = {
 
 type DbRow = Record<string, any>;
 
-function quote(value: string): string {
-  return `"${value.replaceAll('"', '""')}"`;
-}
-
 function tableFor(model: string): string {
   const table = tables[model];
   if (!table) throw new Error(`Unknown database model: ${model}`);
-  return quote(table);
+  return table;
 }
 
 function cuid(): string {
@@ -87,95 +86,286 @@ function cuid(): string {
   return `c${time}${random}`;
 }
 
+/** Generate a new row id — used by callers that must mint an id themselves
+    (e.g. creating a document inside a $transaction). */
+export const newId = cuid;
+
 function isDate(value: unknown): value is Date {
   return value instanceof Date;
 }
 
-function valueForSql(value: unknown, values: unknown[]): string {
-  values.push(isDate(value) ? value : value);
-  return `$${values.length}`;
+/**
+ * The Admin SDK returns Timestamps (not Date objects) for date fields — unlike
+ * the client SDK. Normalize every Timestamp to a Date on read so callers get
+ * the same `Date` semantics the app had on PostgreSQL (`getTime()`, comparisons,
+ * `toISOString()`, JSON serialization all work). Applied at the single read
+ * path so every model inherits the behavior.
+ */
+function fromFirestore(value: unknown): unknown {
+  if (value instanceof Date) return value;
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    typeof (value as { toDate?: unknown }).toDate === "function" &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (Array.isArray(value)) return value.map(fromFirestore);
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = fromFirestore(item);
+    }
+    return out;
+  }
+  return value;
 }
 
-function fieldExpression(field: string): string {
-  return `${quote(field)}`;
+/* ─── where compilation ──────────────────────────────────────────────────── */
+
+type Constraint = { field: string; op: WhereFilterOp; value: unknown };
+
+type Compiled = {
+  /** Constraints safe to push to Firestore (equality, in, not-in, ranges). */
+  constraints: Constraint[];
+  /** Firestore Filter groups (OR / AND of pushed constraints). */
+  filters: Filter[];
+  /** True when `constraints` + `filters` fully express the where clause. */
+  complete: boolean;
+  /** In-memory matcher for the whole where clause (used for post-filtering). */
+  rowPredicate: (row: DbRow) => boolean;
+};
+
+const IN_MAX = 30;
+const NOT_IN_MAX = 10;
+
+function matchesEquals(value: unknown, expected: unknown): boolean {
+  if (expected === null) return value === null || value === undefined;
+  return value === expected;
 }
 
-function buildWhere(where: Where | undefined, values: unknown[]): string {
-  if (!where) return "";
-  const clauses: string[] = [];
-  for (const [field, condition] of Object.entries(where)) {
+function compileWhere(where: Where | undefined): Compiled {
+  const constraints: Constraint[] = [];
+  const filters: Filter[] = [];
+  let complete = true;
+  const checks: Array<(row: DbRow) => boolean> = [];
+
+  const addCheck = (fn: (row: DbRow) => boolean) => {
+    complete = false;
+    checks.push(fn);
+  };
+
+  for (const [field, condition] of Object.entries(where ?? {})) {
     if (condition === undefined) continue;
+
     if (field === "OR" && Array.isArray(condition)) {
-      const parts = condition.map((item) => buildWhere(item as Where, values)).filter(Boolean);
-      if (parts.length) clauses.push(`(${parts.join(" OR ")})`);
+      const branches = condition.map((item) => compileWhere(item as Where));
+      if (branches.every((b) => b.complete)) {
+        const groups = branches
+          .map((b) => {
+            const parts: Filter[] = b.constraints.map((c) => Filter.where(c.field, c.op, c.value));
+            for (const f of b.filters) parts.push(f);
+            return parts.length ? Filter.and(...parts) : null;
+          })
+          .filter((g): g is Filter => g !== null);
+        if (groups.length) filters.push(Filter.or(...groups));
+      } else {
+        addCheck(condition.map((item) => compileWhere(item as Where).rowPredicate).reduce(
+          (acc, p) => (row: DbRow) => acc(row) || p(row),
+          () => false
+        ));
+      }
       continue;
     }
+
     if (field === "AND" && Array.isArray(condition)) {
-      const parts = condition.map((item) => buildWhere(item as Where, values)).filter(Boolean);
-      if (parts.length) clauses.push(`(${parts.join(" AND ")})`);
+      const parts = condition.map((item) => compileWhere(item as Where));
+      if (parts.every((p) => p.complete)) {
+        for (const p of parts) {
+          constraints.push(...p.constraints);
+          filters.push(...p.filters);
+        }
+      } else {
+        addCheck(parts.map((p) => p.rowPredicate).reduce(
+          (acc, p) => (row: DbRow) => acc(row) && p(row),
+          () => true
+        ));
+      }
       continue;
     }
+
     if (field === "NOT") {
-      const parts = Array.isArray(condition)
-        ? condition.map((item) => buildWhere(item as Where, values)).filter(Boolean)
-        : [buildWhere(condition as Where, values)].filter(Boolean);
-      if (parts.length) clauses.push(`NOT (${parts.join(" AND ")})`);
+      const inner = Array.isArray(condition)
+        ? compileWhere({ OR: condition } as Where)
+        : compileWhere(condition as Where);
+      addCheck((row) => !inner.rowPredicate(row));
       continue;
     }
-    const column = fieldExpression(field);
+
+    const get = (row: DbRow) => row[field];
+
     if (condition === null) {
-      clauses.push(`${column} IS NULL`);
+      constraints.push({ field, op: "==", value: null });
+      checks.push((row) => matchesEquals(get(row), null));
       continue;
     }
+
     if (Array.isArray(condition)) {
-      if (!condition.length) clauses.push("FALSE");
-      else clauses.push(`${column} IN (${condition.map((v) => valueForSql(v, values)).join(", ")})`);
+      if (!condition.length) {
+        // SQL `IN ()` matches nothing; Firestore rejects empty `in` — post-filter.
+        addCheck(() => false);
+      } else if (condition.length <= IN_MAX) {
+        constraints.push({ field, op: "in", value: condition });
+        checks.push((row) => condition.includes(get(row)));
+      } else {
+        addCheck((row) => condition.includes(get(row)));
+      }
       continue;
     }
+
     if (typeof condition === "object" && condition !== null && !isDate(condition)) {
       const operator = condition as Record<string, unknown>;
       if (operator.equals !== undefined) {
-        clauses.push(operator.equals === null ? `${column} IS NULL` : `${column} = ${valueForSql(operator.equals, values)}`);
+        constraints.push({ field, op: "==", value: operator.equals });
+        checks.push((row) => matchesEquals(get(row), operator.equals));
       }
       if (operator.in !== undefined) {
         const items = Array.isArray(operator.in) ? operator.in : [];
-        clauses.push(items.length ? `${column} IN (${items.map((v) => valueForSql(v, values)).join(", ")})` : "FALSE");
+        if (items.length <= IN_MAX) {
+          constraints.push({ field, op: "in", value: items });
+          checks.push((row) => items.includes(get(row)));
+        } else {
+          addCheck((row) => items.includes(get(row)));
+        }
       }
       if (operator.notIn !== undefined) {
         const items = Array.isArray(operator.notIn) ? operator.notIn : [];
-        if (items.length) clauses.push(`${column} NOT IN (${items.map((v) => valueForSql(v, values)).join(", ")})`);
+        if (items.length && items.length <= NOT_IN_MAX) {
+          constraints.push({ field, op: "not-in", value: items });
+          checks.push((row) => !items.includes(get(row)));
+        } else {
+          addCheck((row) => !items.includes(get(row)));
+        }
       }
-      if (operator.gte !== undefined) clauses.push(`${column} >= ${valueForSql(operator.gte, values)}`);
-      if (operator.gt !== undefined) clauses.push(`${column} > ${valueForSql(operator.gt, values)}`);
-      if (operator.lte !== undefined) clauses.push(`${column} <= ${valueForSql(operator.lte, values)}`);
-      if (operator.lt !== undefined) clauses.push(`${column} < ${valueForSql(operator.lt, values)}`);
-      if (operator.contains !== undefined) clauses.push(`${column} ILIKE ${valueForSql(`%${String(operator.contains)}%`, values)}`);
-      if (operator.startsWith !== undefined) clauses.push(`${column} ILIKE ${valueForSql(`${String(operator.startsWith)}%`, values)}`);
-      if (operator.endsWith !== undefined) clauses.push(`${column} ILIKE ${valueForSql(`%${String(operator.endsWith)}`, values)}`);
+      if (operator.gte !== undefined) {
+        constraints.push({ field, op: ">=", value: operator.gte });
+        checks.push((row) => get(row) >= (operator.gte as number));
+      }
+      if (operator.gt !== undefined) {
+        constraints.push({ field, op: ">", value: operator.gt });
+        checks.push((row) => get(row) > (operator.gt as number));
+      }
+      if (operator.lte !== undefined) {
+        constraints.push({ field, op: "<=", value: operator.lte });
+        checks.push((row) => get(row) <= (operator.lte as number));
+      }
+      if (operator.lt !== undefined) {
+        constraints.push({ field, op: "<", value: operator.lt });
+        checks.push((row) => get(row) < (operator.lt as number));
+      }
+      if (operator.contains !== undefined) {
+        const needle = String(operator.contains).toLowerCase();
+        addCheck((row) => String(get(row) ?? "").toLowerCase().includes(needle));
+      }
+      if (operator.arrayContains !== undefined) {
+        constraints.push({ field, op: "array-contains", value: operator.arrayContains });
+        checks.push((row) => Array.isArray(get(row)) && (get(row) as unknown[]).includes(operator.arrayContains));
+      }
+      if (operator.arrayContainsAny !== undefined) {
+        const items = Array.isArray(operator.arrayContainsAny) ? operator.arrayContainsAny : [];
+        if (items.length && items.length <= 10) {
+          constraints.push({ field, op: "array-contains-any", value: items });
+          checks.push((row) => Array.isArray(get(row)) && items.some((v) => (get(row) as unknown[]).includes(v)));
+        } else {
+          addCheck((row) => Array.isArray(get(row)) && items.some((v) => (get(row) as unknown[]).includes(v)));
+        }
+      }
+      if (operator.startsWith !== undefined) {
+        const prefix = String(operator.startsWith).toLowerCase();
+        addCheck((row) => String(get(row) ?? "").toLowerCase().startsWith(prefix));
+      }
+      if (operator.endsWith !== undefined) {
+        const suffix = String(operator.endsWith).toLowerCase();
+        addCheck((row) => String(get(row) ?? "").toLowerCase().endsWith(suffix));
+      }
       if (operator.not !== undefined) {
-        if (operator.not === null) clauses.push(`${column} IS NOT NULL`);
-        else if (typeof operator.not === "object") {
-          const nested = buildWhere({ [field]: operator.not } as Where, values).replace(`${column} `, `${column} `);
-          if (nested) clauses.push(`NOT (${nested})`);
-        } else clauses.push(`${column} <> ${valueForSql(operator.not, values)}`);
+        if (operator.not === null) {
+          constraints.push({ field, op: "!=", value: null });
+          checks.push((row) => get(row) !== null && get(row) !== undefined);
+        } else if (typeof operator.not === "object") {
+          const inner = compileWhere({ [field]: operator.not } as Where);
+          addCheck((row) => !inner.rowPredicate(row));
+        } else {
+          constraints.push({ field, op: "!=", value: operator.not });
+          checks.push((row) => get(row) !== operator.not);
+        }
       }
       continue;
     }
-    clauses.push(`${column} = ${valueForSql(condition, values)}`);
+
+    constraints.push({ field, op: "==", value: condition });
+    checks.push((row) => matchesEquals(get(row), condition));
   }
-  return clauses.length ? clauses.join(" AND ") : "";
+
+  const rowPredicate =
+    checks.length === 0
+      ? () => true
+      : (row: DbRow) => checks.every((check) => check(row));
+
+  return { constraints, filters, complete, rowPredicate };
 }
 
-function buildOrder(orderBy: QueryOptions["orderBy"]): string {
-  if (!orderBy) return "";
+/* ─── queries ────────────────────────────────────────────────────────────── */
+
+function applyConstraints(query: Query, compiled: Compiled): Query {
+  let q = query;
+  for (const c of compiled.constraints) q = q.where(c.field, c.op, c.value);
+  for (const f of compiled.filters) q = q.where(f);
+  return q;
+}
+
+function normalizeOrder(orderBy: QueryOptions["orderBy"]): Array<[string, "asc" | "desc"]> {
+  if (!orderBy) return [];
   const entries = Array.isArray(orderBy) ? orderBy : [orderBy];
-  const result: string[] = [];
+  const result: Array<[string, "asc" | "desc"]> = [];
   for (const entry of entries) {
     for (const [field, direction] of Object.entries(entry)) {
-      result.push(`${quote(field)} ${String(direction).toLowerCase() === "desc" ? "DESC" : "ASC"}`);
+      result.push([field, String(direction).toLowerCase() === "desc" ? "desc" : "asc"]);
     }
   }
-  return result.length ? ` ORDER BY ${result.join(", ")}` : "";
+  return result;
+}
+
+async function queryDocs(model: string, options: QueryOptions = {}): Promise<DbRow[]> {
+  const compiled = compileWhere(options.where);
+  const orderBy = normalizeOrder(options.orderBy);
+
+  let query = applyConstraints(getDb().collection(tableFor(model)), compiled);
+  for (const [field, direction] of orderBy) query = query.orderBy(field, direction);
+
+  const limitPushable = compiled.complete && typeof options.take === "number";
+  if (limitPushable) query = query.limit(options.take!);
+
+  const snap = await query.get();
+  let rows = snap.docs.map((d) => ({ id: d.id, ...(fromFirestore(d.data()) as Record<string, unknown>) }) as DbRow);
+
+  if (!compiled.complete) {
+    rows = rows.filter(compiled.rowPredicate);
+    if (typeof options.take === "number") rows = rows.slice(0, options.take);
+  }
+
+  return rows;
+}
+
+async function countRows(model: string, options: QueryOptions = {}): Promise<number> {
+  const compiled = compileWhere(options.where);
+  if (compiled.complete) {
+    const q = applyConstraints(getDb().collection(tableFor(model)), compiled);
+    const snap = await q.count().get();
+    return snap.data().count;
+  }
+  return (await queryDocs(model, { where: options.where })).length;
 }
 
 function applyProjection(row: DbRow, options: QueryOptions): DbRow {
@@ -183,16 +373,6 @@ function applyProjection(row: DbRow, options: QueryOptions): DbRow {
   const projected: DbRow = {};
   for (const [key, enabled] of Object.entries(options.select)) if (enabled) projected[key] = row[key];
   return projected;
-}
-
-async function queryRows(client: Pool | PoolClient, model: string, options: QueryOptions = {}): Promise<DbRow[]> {
-  const values: unknown[] = [];
-  const where = buildWhere(options.where, values);
-  const limit = options.take ? ` LIMIT ${Math.max(0, Math.floor(options.take))}` : "";
-  const sql = `SELECT * FROM ${tableFor(model)}${where ? ` WHERE ${where}` : ""}${buildOrder(options.orderBy)}${limit}`;
-  const rows = (await client.query<DbRow>(sql, values)).rows;
-  const hydrated = await Promise.all(rows.map((row) => hydrate(model, row, options.include)));
-  return hydrated.map((row) => applyProjection(row, options));
 }
 
 async function hydrate(model: string, row: DbRow, include?: Record<string, unknown>): Promise<DbRow> {
@@ -232,20 +412,22 @@ async function hydrate(model: string, row: DbRow, include?: Record<string, unkno
 }
 
 async function many(model: string, options: QueryOptions = {}): Promise<DbRow[]> {
-  return queryRows(pool, model, options);
+  const rows = await queryDocs(model, options);
+  const hydrated = await Promise.all(rows.map((row) => hydrate(model, row, options.include)));
+  return hydrated.map((row) => applyProjection(row, options));
 }
 
 async function first(model: string, options: QueryOptions = {}): Promise<DbRow | null> {
-  const rows = await queryRows(pool, model, { ...options, take: 1 });
-  return rows[0] ?? null;
+  const rows = await queryDocs(model, { ...options, take: 1 });
+  if (!rows.length) return null;
+  return applyProjection(await hydrate(model, rows[0], options.include), options);
 }
 
 async function count(model: string, options: QueryOptions = {}): Promise<number> {
-  const values: unknown[] = [];
-  const where = buildWhere(options.where, values);
-  const result = await pool.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM ${tableFor(model)}${where ? ` WHERE ${where}` : ""}`, values);
-  return Number(result.rows[0]?.count ?? 0);
+  return countRows(model, options);
 }
+
+/* ─── writes ─────────────────────────────────────────────────────────────── */
 
 const updatedAtModels = new Set([
   "organization",
@@ -262,101 +444,184 @@ const updatedAtModels = new Set([
 function normalizeData(model: string, data: Record<string, unknown>): Record<string, unknown> {
   const result = { ...data };
   if (!result.id) result.id = cuid();
+  /* Postgres stamped `createdAt` with a `@default(now())` on every table, but
+     Firestore has no implicit timestamps — and an `orderBy({ createdAt })`
+     query silently EXCLUDES documents that lack the field. Stamp the same
+     default here on every write or newly created rows never appear in any
+     list sorted by createdAt (coupons, organizations, users, audit logs…). */
+  if (!result.createdAt) result.createdAt = new Date();
   if (updatedAtModels.has(model) && !result.updatedAt) result.updatedAt = new Date();
   return result;
 }
 
+/** Firestore rejects `undefined` field values — drop them before writes. */
+function cleanData(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) if (value !== undefined) out[key] = value;
+  return out;
+}
+
 async function create(model: string, data: Record<string, unknown>): Promise<DbRow> {
   const normalized = normalizeData(model, data);
-  const fields = Object.keys(normalized).filter((key) => normalized[key] !== undefined);
-  const values = fields.map((field) => normalized[field]);
-  const sql = `INSERT INTO ${tableFor(model)} (${fields.map(quote).join(", ")}) VALUES (${fields.map((_, i) => `$${i + 1}`).join(", ")}) RETURNING *`;
-  return (await pool.query<DbRow>(sql, values)).rows[0];
+  /* `.create()` (not `.set()`) so a duplicate document id fails atomically
+     instead of silently overwriting the existing row — matches the old
+     Postgres INSERT / primary-key semantics. Callers that need
+     create-or-replace must use upsert() instead. */
+  await getDb().collection(tableFor(model)).doc(String(normalized.id)).create(cleanData(normalized));
+  return normalized;
 }
 
-async function update(model: string, where: Where, data: Record<string, unknown>): Promise<DbRow> {
-  const values: unknown[] = [];
+async function update(model: string, where: Where, data: Record<string, unknown>): Promise<DbRow | undefined> {
   const nextData = { ...data };
   if (updatedAtModels.has(model) && !nextData.updatedAt) nextData.updatedAt = new Date();
-  const assignments = Object.entries(nextData)
-    .filter(([, value]) => value !== undefined)
-    .map(([field, value]) => `${quote(field)} = ${valueForSql(value, values)}`);
-  const condition = buildWhere(where, values);
-  const sql = `UPDATE ${tableFor(model)} SET ${assignments.join(", ")}${condition ? ` WHERE ${condition}` : ""} RETURNING *`;
-  return (await pool.query<DbRow>(sql, values)).rows[0];
+  const rows = await queryDocs(model, { where, take: 1 });
+  if (!rows.length) return undefined;
+  const target = rows[0];
+  await getDb().collection(tableFor(model)).doc(String(target.id)).update(cleanData(nextData));
+  return { ...target, ...cleanData(nextData) };
 }
 
-async function remove(model: string, where: Where, manyRows = false): Promise<number | DbRow> {
-  const values: unknown[] = [];
-  const condition = buildWhere(where, values);
-  const sql = `DELETE FROM ${tableFor(model)}${condition ? ` WHERE ${condition}` : ""}${manyRows ? "" : " RETURNING *"}`;
-  const result = await pool.query<DbRow>(sql, values);
-  return manyRows ? result.rowCount ?? 0 : result.rows[0];
+async function remove(model: string, where: Where): Promise<DbRow | undefined> {
+  const rows = await queryDocs(model, { where, take: 1 });
+  if (!rows.length) return undefined;
+  await getDb().collection(tableFor(model)).doc(String(rows[0].id)).delete();
+  return rows[0];
 }
 
-function uniqueWhere(where: Where): Where {
-  return where;
+/** Tag a rejected operation with model.operation so logDbError can include it. */
+function tagError(model: string, op: string, e: unknown): never {
+  if (e instanceof Error) {
+    (e as { dbContext?: string }).dbContext = `${model}.${op}`;
+  }
+  throw e;
 }
 
 function modelApi(model: string) {
+  const call = <T>(op: string, fn: () => Promise<T>): Promise<T> => fn().catch((e) => tagError(model, op, e));
+
   return {
-    findMany: (options?: QueryOptions) => many(model, options),
-    findFirst: (options?: QueryOptions) => first(model, options),
-    findUnique: (options: { where: Where; select?: Record<string, boolean>; include?: Record<string, unknown> }) => first(model, { ...options, where: uniqueWhere(options.where) }),
-    findUniqueOrThrow: async (options: { where: Where }) => {
-      const row = await first(model, options);
-      if (!row) throw new Error(`${model} record not found`);
-      return row;
-    },
-    count: (options?: QueryOptions) => count(model, options),
-    create: (options: { data: Record<string, unknown> }) => create(model, options.data),
-    createMany: async (options: { data: Record<string, unknown>[] }) => {
-      let inserted = 0;
-      for (const data of options.data) {
-        try {
-          await create(model, data);
-          inserted++;
-        } catch {
-          // Match the app's existing seed/import behavior: duplicate rows are ignored.
+    findMany: (options?: QueryOptions) => call("findMany", () => many(model, options)),
+    findFirst: (options?: QueryOptions) => call("findFirst", () => first(model, options)),
+    findUnique: (options: { where: Where; select?: Record<string, boolean>; include?: Record<string, unknown> }) =>
+      call("findUnique", () => first(model, { ...options, take: 1 })),
+    findUniqueOrThrow: async (options: { where: Where }) =>
+      call("findUniqueOrThrow", async () => {
+        const row = await first(model, { ...options, take: 1 });
+        if (!row) throw new Error(`${model} record not found`);
+        return row;
+      }),
+    count: (options?: QueryOptions) => call("count", () => count(model, options)),
+    create: (options: { data: Record<string, unknown> }) => call("create", () => create(model, options.data)),
+    createMany: (options: { data: Record<string, unknown>[] }) =>
+      call("createMany", async () => {
+        const collection = getDb().collection(tableFor(model));
+        let inserted = 0;
+        for (const data of options.data) {
+          try {
+            const normalized = normalizeData(model, data);
+            if (normalized.id && (await collection.doc(String(normalized.id)).get()).exists) continue;
+            await create(model, normalized);
+            inserted++;
+          } catch {
+            // Match the app's existing seed/import behavior: duplicate rows are ignored.
+          }
         }
-      }
-      return { count: inserted };
+        return { count: inserted };
+      }),
+    update: (options: { where: Where; data: Record<string, unknown> }) =>
+      call("update", () => update(model, options.where, options.data)),
+    updateMany: (options: { where: Where; data: Record<string, unknown> }) =>
+      call("updateMany", async () => {
+        const nextData = { ...options.data };
+        if (updatedAtModels.has(model) && !nextData.updatedAt) nextData.updatedAt = new Date();
+        const rows = await queryDocs(model, { where: options.where });
+        const collection = getDb().collection(tableFor(model));
+        for (const row of rows) {
+          await collection.doc(String(row.id)).update(cleanData(nextData)).catch(() => {});
+        }
+        return { count: rows.length };
+      }),
+    delete: (options: { where: Where }) => call("delete", () => remove(model, options.where) as Promise<DbRow>),
+    deleteMany: (options?: { where?: Where }) =>
+      call("deleteMany", async () => {
+        const rows = await queryDocs(model, { where: options?.where ?? {} });
+        const collection = getDb().collection(tableFor(model));
+        for (const row of rows) await collection.doc(String(row.id)).delete().catch(() => {});
+        return { count: rows.length };
+      }),
+    upsert: (options: { where: Where; update: Record<string, unknown>; create: Record<string, unknown> }) =>
+      call("upsert", async () => {
+        const existing = await first(model, { where: options.where });
+        return existing ? update(model, options.where, options.update) : create(model, options.create);
+      }),
+  };
+}
+
+/* ─── transactions ───────────────────────────────────────────────────────────
+   Firestore transactions only support document-id operations (no queries).
+   `db.$transaction(fn)` runs fn with a tx object whose methods operate on a
+   single document by id, with Firestore's read-then-write atomicity and
+   automatic retry on conflict. Use it for any read-modify-write that must not
+   race (e.g. the single-use coupon claim).
+
+   tx.getDoc(model, id)      -> { exists, data } (data normalized like reads)
+   tx.setDoc(model, id, data)-> create-or-replace (stamps id/createdAt)
+   tx.createDoc(model, id, data) -> fails if the document already exists
+   tx.updateDoc(model, id, data) -> merges fields; fails if missing
+   tx.deleteDoc(model, id)   -> deletes
+
+   IMPORTANT: Firestore requires ALL reads (tx.getDoc) to happen before the
+   FIRST write in the transaction — interleaving them fails with
+   "transactions require all reads to be executed before all writes".
+*/
+type TxApi = {
+  getDoc: (model: string, id: string) => Promise<{ exists: boolean; data: DbRow | null }>;
+  setDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  createDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  updateDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  deleteDoc: (model: string, id: string) => Promise<void>;
+};
+
+function txApi(t: Transaction): TxApi {
+  const ref = (model: string, id: string) => getDb().collection(tableFor(model)).doc(String(id));
+  return {
+    getDoc: async (model, id) => {
+      const snap = await t.get(ref(model, id));
+      return snap.exists
+        ? { exists: true, data: fromFirestore(snap.data() as Record<string, unknown>) as DbRow }
+        : { exists: false, data: null };
     },
-    update: (options: { where: Where; data: Record<string, unknown> }) => update(model, options.where, options.data),
-    updateMany: async (options: { where: Where; data: Record<string, unknown> }) => {
-      const values: unknown[] = [];
-      const assignments = Object.entries(options.data)
-        .filter(([, value]) => value !== undefined)
-        .map(([field, value]) => `${quote(field)} = ${valueForSql(value, values)}`);
-      const condition = buildWhere(options.where, values);
-      const result = await pool.query(`UPDATE ${tableFor(model)} SET ${assignments.join(", ")}${condition ? ` WHERE ${condition}` : ""}`, values);
-      return { count: result.rowCount ?? 0 };
+    setDoc: async (model, id, data) => {
+      const normalized = normalizeData(model, { ...data, id });
+      t.set(ref(model, id), cleanData(normalized));
     },
-    delete: (options: { where: Where }) => remove(model, options.where) as Promise<DbRow>,
-    deleteMany: async (options?: { where?: Where }) => ({ count: await remove(model, options?.where ?? {}, true) as number }),
-    upsert: async (options: { where: Where; update: Record<string, unknown>; create: Record<string, unknown> }) => {
-      const existing = await first(model, { where: options.where });
-      return existing ? update(model, options.where, options.update) : create(model, options.create);
+    createDoc: async (model, id, data) => {
+      const normalized = normalizeData(model, { ...data, id });
+      t.create(ref(model, id), cleanData(normalized));
+    },
+    updateDoc: async (model, id, data) => {
+      t.update(ref(model, id), cleanData(data));
+    },
+    deleteDoc: async (model, id) => {
+      t.delete(ref(model, id));
     },
   };
 }
 
+function runTransaction<T>(fn: (tx: TxApi) => Promise<T>): Promise<T> {
+  return getDb().runTransaction((t) => fn(txApi(t)));
+}
+
 export const db: any = new Proxy<Record<string, any>>({
-  $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
-    let sql = "";
-    strings.forEach((part, index) => {
-      sql += part;
-      if (index < values.length) sql += `$${index + 1}`;
-    });
-    return (await pool.query(sql, values)).rows;
+  $queryRaw: async () => {
+    throw new Error("Raw SQL is not available on Firestore — use the db.* API instead.");
   },
 }, {
   get(target, property: string | symbol) {
     if (property === "$queryRaw") return target.$queryRaw;
+    if (property === "$transaction") return runTransaction;
     if (typeof property !== "string") return undefined;
     if (!target[property]) target[property] = modelApi(property);
     return target[property];
   },
 });
-
-export { pool };

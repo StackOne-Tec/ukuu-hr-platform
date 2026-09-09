@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to load employees right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to load employees right now.", "v1.bridge.employees") },
       { status: 503 }
     );
   }

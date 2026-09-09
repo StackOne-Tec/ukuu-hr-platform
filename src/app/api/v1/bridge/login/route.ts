@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 import { ensureDemoOrg } from "@/lib/org";
 import { apiErrorMessage } from "@/lib/apikey";
 import {
+  authErrorMessage,
+  FirebaseAuthError,
+  verifyCredentials,
+} from "@/lib/firebase-auth";
+import {
   generateBridgeToken,
   hashBridgeToken,
   subscriptionInfo,
@@ -19,10 +24,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * Body: { email, password }
  *
  * Auth rules are intentionally IDENTICAL to the cloud sign-in (/api/auth/login):
- * the typed password must match the credential stored on the account — unknown
- * emails and wrong passwords are rejected with the same generic error (no
- * auto-provisioning, no write-through). Swap both endpoints over to a real
- * identity provider together when one lands.
+ * Firebase Auth validates the typed password — unknown emails and wrong
+ * passwords are rejected with the same generic error (no auto-provisioning,
+ * no write-through). Legacy plaintext accounts are migrated into Firebase
+ * transparently on their next successful sign-in.
  *
  * Returns the (one-time) Bridge session token + account / organization /
  * subscription state so the desktop app can show the dashboard when the
@@ -57,16 +62,43 @@ export async function POST(req: Request) {
   try {
     const demo = await ensureDemoOrg();
 
-    // Real verification, identical to the cloud: the password must match the
-    // credential stored on the account. Same generic error for unknown email
-    // and wrong password; no auto-provisioning and no write-through here.
+    // Real verification, identical to the cloud: Firebase Auth validates the
+    // credentials. Same generic error for unknown email and wrong password;
+    // no auto-provisioning and no write-through here.
+    let identity;
+    try {
+      identity = await verifyCredentials(email, password);
+    } catch (e) {
+      if (e instanceof FirebaseAuthError) {
+        const status =
+          e.code === "USER_DISABLED"
+            ? 403
+            : e.code === "TOO_MANY_ATTEMPTS_TRY_LATER"
+              ? 429
+              : e.code === "MISSING_CONFIG" || e.code === "OPERATION_NOT_ALLOWED"
+                ? 503
+                : 401;
+        return NextResponse.json(
+          { ok: false, error: authErrorMessage(e, "Incorrect email or password.") },
+          { status }
+        );
+      }
+      // Not an auth failure (e.g. database unreachable) — the outer catch
+      // logs it and degrades as a database failure.
+      throw e;
+    }
+
     const account = await db.userAccount.findUnique({ where: { email } });
-    if (!account || !account.passwordHash || account.passwordHash !== password) {
+    if (!account) {
       return NextResponse.json(
         { ok: false, error: "Incorrect email or password." },
         { status: 401 }
       );
     }
+    // Keep the stored verification status fresh (Firebase is the source of truth).
+    await db.userAccount
+      .update({ where: { email }, data: { emailVerified: identity?.emailVerified === true } })
+      .catch(() => {});
 
     if (!account.isActive) {
       return NextResponse.json({ ok: false, error: "This account has been disabled." }, { status: 403 });
@@ -81,7 +113,11 @@ export async function POST(req: Request) {
     if (!org) org = demo;
     if (!org) {
       return NextResponse.json(
-        { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+        {
+          ok: false,
+          error:
+            "No workspace could be found for this account. Sign in to the web app first to create or join a workspace.",
+        },
         { status: 503 }
       );
     }
@@ -125,7 +161,7 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to sign in right now. Please try again.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to sign in right now. Please try again.", "bridge.login") },
       { status: 503 }
     );
   }

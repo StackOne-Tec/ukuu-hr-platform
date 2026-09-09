@@ -126,14 +126,19 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
      The last verdict is cached in sessionStorage so a locked workspace shows
      the gate right away (no content flash) and a valid one never sees a
      loader while the check re-runs. */
-  const [locked, setLocked] = useState<boolean>(() => {
-    if (IS_ADMIN_PLATFORM) return false;
+  const [locked, setLocked] = useState<boolean>(false);
+
+  /* sessionStorage is browser-only, so the cached verdict is applied after
+     hydration — reading it during the initial render would make the client
+     HTML differ from the server's and trigger a hydration mismatch. */
+  useEffect(() => {
+    if (IS_ADMIN_PLATFORM) return;
     try {
-      return typeof window !== "undefined" && sessionStorage.getItem("ukuu_license_locked") === "1";
+      if (sessionStorage.getItem("ukuu_license_locked") === "1") setLocked(true);
     } catch {
-      return false;
+      /* ignore */
     }
-  });
+  }, []);
   const applyAccess = useCallback((isLocked: boolean) => {
     setLocked(isLocked);
     try {
@@ -184,13 +189,20 @@ export default function AdminShell({ activeKey = "dashboard", children }: AdminS
     window.dispatchEvent(new Event(THEME_EVENT));
   };
 
-  const signOut = () => {
+  const signOut = async () => {
     try {
       localStorage.removeItem("ukuu_session");
       sessionStorage.removeItem("ukuu_session");
     } catch { /* ignore */ }
-    // Destroy the server-side tenant session (httpOnly cookie) before redirecting.
-    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    // Destroy the server-side tenant session (httpOnly cookie) BEFORE
+    // navigating — an un-awaited fetch gets aborted by the page navigation,
+    // leaving the WebSession row alive and the old cookie still valid.
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        signal: AbortSignal.timeout(5_000),
+      });
+    } catch { /* never trap the user on a stalled request */ }
     window.location.assign("/login");
   };
 

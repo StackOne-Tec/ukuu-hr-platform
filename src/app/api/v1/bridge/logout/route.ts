@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logDbError } from "@/lib/db-error";
 import { extractApiKey } from "@/lib/apikey";
 import { hashBridgeToken, BRIDGE_TOKEN_PREFIX } from "@/lib/bridge";
 
@@ -18,6 +19,10 @@ export async function POST(req: Request) {
   }
   await db.bridgeSession
     .deleteMany({ where: { tokenHash: hashBridgeToken(token) } })
-    .catch(() => {});
+    .catch((e) => {
+      // Best-effort logout: the session row failing to delete is logged so
+      // orphaned sessions are diagnosable, but the client always signs out.
+      logDbError(e, "bridge.logout");
+    });
   return NextResponse.json({ ok: true });
 }

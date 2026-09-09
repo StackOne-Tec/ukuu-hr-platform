@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/db";
+import { db, newId } from "@/lib/db";
 import { getWebSession } from "@/lib/session";
 import { IS_ADMIN_PLATFORM } from "@/lib/platform";
 import { sendEmail, accessCodeRedeemedEmailHtml } from "@/lib/email";
@@ -97,32 +97,38 @@ export async function redeemAccessCode(rawCode: string): Promise<RedeemResult> {
     const plan = coupon.plan ?? "Professional";
     const now = new Date();
     const org = await db.organization.findUnique({ where: { id: session.organizationId } });
+    const existing = await db.licenseCode.findFirst({ where: { organizationId: session.organizationId } });
 
-    /* Single-use: claim the code atomically (only succeeds if it is still
-       unredeemed) so two workspaces redeeming the same code at the same time
-       can't both succeed. */
-    const claim = await db.coupon.updateMany({
-      where: { id: coupon.id, redeemedAt: null },
-      data: {
+    /* Single-use, all-or-nothing: claim the code AND bind the license inside
+       one Firestore transaction. The coupon doc is read then marked redeemed
+       atomically — two workspaces redeeming the same code concurrently can't
+       both succeed. If the license write fails for any reason the whole
+       transaction aborts, so a code is never burned without an unlock. */
+    const claimed = await db.$transaction(async (tx) => {
+      /* Firestore transactions require every read before the first write, so
+         fetch the coupon AND the existing license up front (the license read
+         also gives it conflict protection against concurrent renewals). */
+      const [doc, license] = await Promise.all([
+        tx.getDoc("coupon", coupon.id),
+        existing ? tx.getDoc("licenseCode", existing.id) : Promise.resolve(null),
+      ]);
+      if (!doc.exists || doc.data.redeemedAt) return false;
+      await tx.updateDoc("coupon", coupon.id, {
         redeemedAt: now,
         redeemedByOrgId: session.organizationId,
         redeemedByOrgName: org?.name ?? "Unknown workspace",
-      },
-    });
-    if (claim.count === 0) {
-      return { ok: false, error: "This access code has already been used." };
-    }
-
-    const existing = await db.licenseCode.findFirst({ where: { organizationId: session.organizationId } });
-    if (existing) {
-      // Renewal — a new code replaces (and extends) the current license.
-      await db.licenseCode.update({
-        where: { id: existing.id },
-        data: { code, plan, status: "Active", activatedAt: now, expiresAt: coupon.expiresAt },
       });
-    } else {
-      await db.licenseCode.create({
-        data: {
+      if (license?.exists) {
+        // Renewal — a new code replaces (and extends) the current license.
+        await tx.updateDoc("licenseCode", existing!.id, {
+          code,
+          plan,
+          status: "Active",
+          activatedAt: now,
+          expiresAt: coupon.expiresAt,
+        });
+      } else {
+        await tx.createDoc("licenseCode", newId(), {
           organizationId: session.organizationId,
           code,
           plan,
@@ -130,8 +136,12 @@ export async function redeemAccessCode(rawCode: string): Promise<RedeemResult> {
           issuedAt: now,
           activatedAt: now,
           expiresAt: coupon.expiresAt,
-        },
-      });
+        });
+      }
+      return true;
+    });
+    if (!claimed) {
+      return { ok: false, error: "This access code has already been used." };
     }
 
     // Notify the platform admin (fire-and-forget — never fail a redemption

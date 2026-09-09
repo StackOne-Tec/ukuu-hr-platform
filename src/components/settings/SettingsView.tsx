@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
-import { Users, KeyRound, UserPlus, Copy, RefreshCw, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Users, KeyRound, UserPlus, Copy, RefreshCw, ShieldCheck, CheckCircle2, Lock, MailWarning, MailCheck } from "lucide-react";
 
 type SettingsData = {
+  me: { email: string; emailVerified: boolean };
   users: { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: string | null }[];
   apiKeys: { id: string; name: string; masked: string; scopes: string; scopeLabels: string[]; isActive: boolean; lastUsedAt: string | null; createdAt: string | null; rotatedAt: string | null }[];
 };
@@ -12,6 +13,7 @@ type SettingsData = {
 const TABS = [
   ["users", "User Management", Users],
   ["api-keys", "API Keys", KeyRound],
+  ["password", "Password", Lock],
 ] as const;
 
 type ApiKeyRow = {
@@ -43,6 +45,75 @@ export default function SettingsView({ data }: { data: SettingsData }) {
   const [invError, setInvError] = useState("");
   const [invited, setInvited] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
 
+  /* change password + email verification */
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwNotice, setPwNotice] = useState("");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+
+  const signedIn = Boolean(data.me.email);
+  const verified = data.me.emailVerified;
+
+  const resendVerification = async () => {
+    setVerifyBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/verify-email", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) setNotice(json.message ?? "Verification email sent — check your inbox.");
+      else setError(json.error ?? "Could not send the verification email.");
+    } catch {
+      setError("Could not reach the verification service.");
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
+
+  const changePassword = async (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
+    if (pwBusy) return;
+    setPwError("");
+    setPwNotice("");
+    const current = pwForm.current;
+    const next = pwForm.next;
+    if (!current) {
+      setPwError("Enter your current password.");
+      return;
+    }
+    if (next.length < 8) {
+      setPwError("New password must be at least 8 characters.");
+      return;
+    }
+    if (next !== pwForm.confirm) {
+      setPwError("New passwords do not match.");
+      return;
+    }
+    if (next === current) {
+      setPwError("New password must be different from your current password.");
+      return;
+    }
+    setPwBusy(true);
+    try {
+      const res = await fetch("/api/settings/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setPwForm({ current: "", next: "", confirm: "" });
+        setPwNotice(json.message ?? "Password updated.");
+      } else {
+        setPwError(json.error ?? "Your password could not be changed. Please try again.");
+      }
+    } catch {
+      setPwError("Could not reach the password service.");
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
   const loadKeys = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -57,7 +128,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
         }
       } else {
         setDbDown(Boolean(json.dbDown));
-        setError(json.dbDown ? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to load API keys");
+        setError(json.dbDown ? json.error ?? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to load API keys");
       }
     } catch {
       setError("Could not reach the API keys service.");
@@ -92,7 +163,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
         setNotice("New API key created — copy it now, it won’t be shown again");
       } else {
         setDbDown(Boolean(json.dbDown));
-        setError(json.dbDown ? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to create API key");
+        setError(json.dbDown ? json.error ?? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to create API key");
       }
     } catch {
       setError("Could not create API key.");
@@ -114,7 +185,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
         setNotice("API key regenerated — copy it now, it won’t be shown again");
       } else {
         setDbDown(Boolean(json.dbDown));
-        setError(json.dbDown ? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to regenerate API key");
+        setError(json.dbDown ? json.error ?? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to regenerate API key");
       }
     } catch {
       setError("Could not regenerate API key.");
@@ -136,7 +207,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
         setNotice("API key revoked");
       } else {
         setDbDown(Boolean(json.dbDown));
-        setError(json.dbDown ? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to revoke API key");
+        setError(json.dbDown ? json.error ?? "The database is temporarily unreachable — please try again in a moment." : json.error ?? "Failed to revoke API key");
       }
     } catch {
       setError("Could not revoke API key.");
@@ -180,7 +251,7 @@ export default function SettingsView({ data }: { data: SettingsData }) {
         setDbDown(Boolean(json.dbDown));
         setInvError(
           json.dbDown
-            ? "The database is temporarily unreachable — please try again in a moment."
+            ? json.error ?? "The database is temporarily unreachable — please try again in a moment."
             : json.error ?? "Failed to send the invitation."
         );
       }
@@ -206,6 +277,39 @@ export default function SettingsView({ data }: { data: SettingsData }) {
           <p className="bk-admin-sub">User accounts and the scoped API keys used for integrations.</p>
         </div>
       </div>
+
+      {/* verified-email banner — sensitive actions are gated on this */}
+      {signedIn && !verified && (
+        <div
+          className="bk-admin-card-content"
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            border: "1px solid var(--bk-line)",
+            borderRadius: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <MailWarning size={18} style={{ color: "var(--bk-accent-4)", marginTop: 2, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                Verify your email address ({data.me.email})
+              </div>
+              <div className="bk-muted-text" style={{ fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>
+                API keys, invitations and password changes are locked until you confirm your
+                inbox. A verification link was emailed to you when you signed up.
+              </div>
+            </div>
+          </div>
+          <button type="button" className="bk-btn bk-btn-secondary" onClick={resendVerification} disabled={verifyBusy}>
+            {verifyBusy ? "Sending…" : "Resend verification email"}
+          </button>
+        </div>
+      )}
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--bk-line)", marginBottom: 20, flexWrap: "wrap" }} data-tour="settings-tabs">
@@ -235,7 +339,13 @@ export default function SettingsView({ data }: { data: SettingsData }) {
               <h3>User accounts</h3>
               <p>People who can sign in to this workspace — invite teammates to join.</p>
             </div>
-            <button type="button" className="bk-btn bk-btn-secondary" onClick={openInvite} disabled={invBusy}>
+            <button
+              type="button"
+              className="bk-btn bk-btn-secondary"
+              onClick={openInvite}
+              disabled={invBusy || !verified}
+              title={verified ? undefined : "Verify your email address to invite users"}
+            >
               <UserPlus size={15} /> {showInvite ? "Close" : "Invite user"}
             </button>
           </div>
@@ -347,7 +457,13 @@ export default function SettingsView({ data }: { data: SettingsData }) {
               <h3>API keys</h3>
               <p>Scoped keys for integrations — send as <span className="bk-mono">Authorization: Bearer &lt;key&gt;</span></p>
             </div>
-            <button type="button" className="bk-btn bk-btn-secondary" onClick={createKey} disabled={busy || dbDown}>
+            <button
+              type="button"
+              className="bk-btn bk-btn-secondary"
+              onClick={createKey}
+              disabled={busy || dbDown || !verified}
+              title={verified ? undefined : "Verify your email address to create API keys"}
+            >
               <KeyRound size={15} /> New key
             </button>
           </div>
@@ -378,10 +494,10 @@ export default function SettingsView({ data }: { data: SettingsData }) {
                     )}
                     {k.isActive && !dbDown ? (
                       <>
-                        <button type="button" className="bk-btn bk-btn-secondary" onClick={() => rotateKey(k.id)} disabled={busy}>
+                        <button type="button" className="bk-btn bk-btn-secondary" onClick={() => rotateKey(k.id)} disabled={busy || !verified} title={verified ? undefined : "Verify your email address to regenerate API keys"}>
                           <RefreshCw size={15} /> Regenerate
                         </button>
-                        <button type="button" className="bk-btn bk-btn-secondary" style={{ color: "var(--bk-accent)" }} onClick={() => revokeKey(k.id)} disabled={busy}>
+                        <button type="button" className="bk-btn bk-btn-secondary" style={{ color: "var(--bk-accent)" }} onClick={() => revokeKey(k.id)} disabled={busy || !verified} title={verified ? undefined : "Verify your email address to revoke API keys"}>
                           Revoke
                         </button>
                       </>
@@ -399,6 +515,96 @@ export default function SettingsView({ data }: { data: SettingsData }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {tab === "password" && (
+        <div className="bk-admin-card">
+          <div className="bk-admin-card-header">
+            <div>
+              <h3>Password</h3>
+              <p>
+                Change the password for {data.me.email || "your account"} — stored and hashed by
+                Firebase Auth, never by us.
+              </p>
+            </div>
+          </div>
+          <div className="bk-admin-card-content">
+            {!signedIn ? (
+              <div className="bk-admin-empty">Sign in to change your password.</div>
+            ) : !verified ? (
+              <div className="bk-admin-empty" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <MailWarning size={18} style={{ color: "var(--bk-accent-4)", flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  Verify your email address to change your password — a verification link is in
+                  your inbox (or use the resend button above).
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={changePassword} noValidate style={{ maxWidth: 420 }}>
+                <div className="bk-field">
+                  <label className="bk-label" htmlFor="pw-current">
+                    Current password
+                  </label>
+                  <input
+                    id="pw-current"
+                    className="bk-input"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={pwForm.current}
+                    onChange={(e) => setPwForm((f) => ({ ...f, current: e.target.value }))}
+                  />
+                </div>
+                <div className="bk-field">
+                  <label className="bk-label" htmlFor="pw-new">
+                    New password
+                  </label>
+                  <input
+                    id="pw-new"
+                    className="bk-input"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    value={pwForm.next}
+                    onChange={(e) => setPwForm((f) => ({ ...f, next: e.target.value }))}
+                  />
+                </div>
+                <div className="bk-field">
+                  <label className="bk-label" htmlFor="pw-confirm">
+                    Confirm new password
+                  </label>
+                  <input
+                    id="pw-confirm"
+                    className="bk-input"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Repeat the new password"
+                    value={pwForm.confirm}
+                    onChange={(e) => setPwForm((f) => ({ ...f, confirm: e.target.value }))}
+                  />
+                </div>
+                {pwError && (
+                  <div className="bk-muted-text" style={{ color: "var(--bk-accent-4)", fontSize: 12.5, marginTop: 6 }}>
+                    {pwError}
+                  </div>
+                )}
+                {pwNotice && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--bk-accent-3)", fontSize: 12.5, marginTop: 6 }}>
+                    <MailCheck size={15} /> {pwNotice}
+                  </div>
+                )}
+                <div style={{ marginTop: 16 }}>
+                  <button type="submit" className="bk-btn bk-btn-primary" disabled={pwBusy}>
+                    <Lock size={15} /> {pwBusy ? "Updating…" : "Update password"}
+                  </button>
+                </div>
+                <div className="bk-muted-text" style={{ marginTop: 14, fontSize: 12, lineHeight: 1.5 }}>
+                  After a successful change, every other signed-in session is revoked automatically.
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

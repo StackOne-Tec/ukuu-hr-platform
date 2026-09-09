@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
-import { sendEmail, welcomeEmailHtml } from "@/lib/email"
+import { sendEmail, welcomeEmailHtml, verifyEmailHtml } from "@/lib/email"
+import { dbErrorMessage, logDbError } from "@/lib/db-error"
+import {
+  authErrorMessage,
+  createFirebaseUser,
+  deleteFirebaseUser,
+  FirebaseAuthError,
+  generateEmailVerificationLink,
+} from "@/lib/firebase-auth"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -101,7 +109,13 @@ export async function POST(req: Request) {
         { status: 409 }
       )
     }
-    {
+
+    // Identity lives in Firebase Auth: the password is stored and hashed by
+    // Firebase, never by us. (Admin SDK createUser works even before the
+    // email/password provider is enabled in the Firebase console.)
+    const fbUser = await createFirebaseUser(email, password)
+
+    try {
       // New signup — provision a brand-new, isolated organization.
       let slug = workspace.replace(/\.ukuuhr\.app$/, "")
       let suffix = 1
@@ -124,44 +138,69 @@ export async function POST(req: Request) {
           name,
           email,
           role: "Admin",
-          /* same credentials work on the Bridge desktop app (plaintext mock
-             auth — verifyPassword compares directly) */
-          passwordHash: password,
+          firebaseUid: fbUser.uid,
+          emailVerified: false,
         },
       })
       organizationId = org.id
       userId = user.id
-    }
 
-    const sessionToken =
-      organizationId && userId
-        ? await createWebSession({ userId, organizationId, remember: true })
-        : null
+      const sessionToken =
+        organizationId && userId
+          ? await createWebSession({ userId, organizationId, remember: true })
+          : null
 
-    const res = NextResponse.json({
-      ok: true,
-      user: { email, name, organization: orgName, country },
-      token: `ukuu_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
-      workspace,
-      plan: "trial-14d",
-      organizationId,
-    })
-    if (sessionToken) {
-      res.cookies.set(SESSION_COOKIE, sessionToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: SESSION_DAYS * 86400,
+      const res = NextResponse.json({
+        ok: true,
+        user: { email, name, organization: orgName, country },
+        token: `ukuu_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+        workspace,
+        plan: "trial-14d",
+        organizationId,
       })
-    }
+      if (sessionToken) {
+        res.cookies.set(SESSION_COOKIE, sessionToken, {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: SESSION_DAYS * 86400,
+        })
+      }
 
-    // Welcome email (fire-and-forget — never fail registration because of email).
-    void sendEmail(email, "Welcome to Ukuu HR 🎉", welcomeEmailHtml(name, workspace))
-    return res
-  } catch {
+      // Welcome email (fire-and-forget — never fail registration because of email).
+      void sendEmail(email, "Welcome to Ukuu HR 🎉", welcomeEmailHtml(name, workspace))
+      // Email verification (fire-and-forget): sensitive workspace actions are
+      // gated on a verified address, so send the link right away.
+      const origin = new URL(req.url).origin
+      void generateEmailVerificationLink(email, `${origin}/dashboard`)
+        .then((verifyUrl) =>
+          sendEmail(email, "Verify your Ukuu HR email", verifyEmailHtml(name, verifyUrl))
+        )
+        .catch((e) => logDbError(e, "auth.register.verifyEmail"))
+      return res
+    } catch (e) {
+      // Roll back the Firebase user so a half-created registration leaves no
+      // orphan identity behind.
+      await deleteFirebaseUser(fbUser.uid).catch(() => {})
+      throw e
+    }
+  } catch (e) {
+    if (e instanceof FirebaseAuthError) {
+      const status =
+        e.code === "EMAIL_EXISTS"
+          ? 409
+          : e.code === "WEAK_PASSWORD" || e.code === "INVALID_EMAIL"
+            ? 400
+            : 503
+      return NextResponse.json(
+        { ok: false, error: authErrorMessage(e, "Registration failed. Please try again.") },
+        { status }
+      )
+    }
+    logDbError(e, "auth.register")
     return NextResponse.json(
-      { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+      { ok: false, error: dbErrorMessage(e) },
       { status: 503 }
     )
   }

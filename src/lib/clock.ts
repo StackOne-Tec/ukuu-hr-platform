@@ -6,7 +6,17 @@ import { eventLabel } from "@/lib/isapi";
    over events they ALREADY retrieved from a device:
      • the web Import Attendance flow pulls them server-side (ISAPI), and
      • the Bridge desktop app pulls them from the LAN and uploads them here.
-   Every event is logged to UnifiedClockEvent; check-in/check-out punches whose
+
+   Records can flow into the core Attendance system in two ways:
+     • ingestClockEvents — write + roll up immediately (web ISAPI pull and the
+       API-key import are user-initiated, so importing right away is right).
+     • stageClockEvents — write as PENDING records only; the Import Attendance
+       page then presents them in a selection GUI ("records synced from the
+       Bridge") and the chosen ones are rolled up into Attendance on demand
+       via rollupClockEvents. This is the Bridge desktop path: nothing enters
+       the core attendance system until an admin selects it.
+
+   Every event is logged to UnifiedClockEvent. Check-in/check-out punches whose
    employee code matches a record are rolled up into daily Attendance rows.
    Returns counts so the caller can report honestly — if the database is
    unreachable it reports dbUnreachable:true instead of claiming records were
@@ -34,32 +44,40 @@ export type IngestResult = {
   dbUnreachable: boolean;
 };
 
-export async function ingestClockEvents(opts: {
+export type StageResult = {
+  persisted: number; // new PENDING clock-event rows written
+  dbUnreachable: boolean;
+};
+
+export type RollupResult = {
+  attendanceRows: number;
+  matched: number;
+  unmatchedPunches: number;
+  dbUnreachable: boolean;
+};
+
+function eventTypeOf(e: ClockEventInput): string {
+  if (e.kind === "check-in") return e.label ?? "Check In";
+  if (e.kind === "check-out") return e.label ?? "Check Out";
+  const cap = e.kind === "verify" ? "Verify" : "System";
+  // ISAPI-origin events carry major/minor codes → keep the legacy labels.
+  if (e.major != null || e.minor != null) return `${cap} · ${eventLabel(e.major ?? 0, e.minor ?? 0)}`;
+  return e.label ?? cap;
+}
+
+/* ── stage: dedupe against the clock-event log and write new rows ──
+   `pending` marks rows that are waiting to be imported into Attendance. */
+async function writeClockEventRows(opts: {
   organizationId: string | null;
   events: ClockEventInput[];
-  sourceLabel: string; // device name or ip — appears in the attendance note
+  pending: boolean;
   deviceRef?: { id: string | null } | null; // when set, device sync metadata is updated
   devicePassword?: string | null; // persist into the device record when provided
-}): Promise<IngestResult> {
-  const result: IngestResult = { persisted: 0, attendanceRows: 0, matched: 0, unmatchedPunches: 0, dbUnreachable: false };
+}): Promise<{ persisted: number; dbUnreachable: boolean }> {
+  const result: { persisted: number; dbUnreachable: boolean } = { persisted: 0, dbUnreachable: false };
   const { events, organizationId } = opts;
 
-  const eventTypeOf = (e: ClockEventInput): string => {
-    if (e.kind === "check-in") return e.label ?? "Check In";
-    if (e.kind === "check-out") return e.label ?? "Check Out";
-    const cap = e.kind === "verify" ? "Verify" : "System";
-    // ISAPI-origin events carry major/minor codes → keep the legacy labels.
-    if (e.major != null || e.minor != null) return `${cap} · ${eventLabel(e.major ?? 0, e.minor ?? 0)}`;
-    return e.label ?? cap;
-  };
-
   try {
-    const employees = await db.employee.findMany({
-      where: { organizationId: organizationId ?? "none" },
-      select: { id: true, employeeCode: true },
-    }) as Array<{ id: string; employeeCode: string }>;
-    const empByCode = new Map(employees.map((e) => [e.employeeCode, e.id]));
-
     // ── Dedupe against clock events already in the log ──
     // Punches match on code + kind within the same minute (device clocks
     // jitter); system/verify events on code + kind at the exact second. This
@@ -98,12 +116,47 @@ export async function ingestClockEvents(opts: {
           eventType: eventTypeOf(e),
           eventTime: e.time,
           raw: e.raw || null,
+          pending: opts.pending,
+          importedAt: opts.pending ? null : new Date(),
         })),
       });
       result.persisted = count;
     }
 
-    // ── Roll check-in/check-out punches up into daily attendance rows ──
+    if (opts.deviceRef?.id) {
+      await db.attendanceDevice.update({
+        where: { id: opts.deviceRef.id },
+        data: {
+          ...(opts.devicePassword ? { apiKey: opts.devicePassword } : {}),
+          status: "Online",
+          lastSyncAt: new Date(),
+          lastError: null,
+        },
+      });
+    }
+  } catch {
+    result.dbUnreachable = true;
+  }
+
+  return result;
+}
+
+/* ── rollup: turn check-in/check-out punches into daily Attendance rows ── */
+export async function rollupClockEvents(opts: {
+  organizationId: string | null;
+  events: ClockEventInput[];
+  sourceLabel: string; // device name or ip — appears in the attendance note
+}): Promise<RollupResult> {
+  const result: RollupResult = { attendanceRows: 0, matched: 0, unmatchedPunches: 0, dbUnreachable: false };
+  const { events, organizationId } = opts;
+
+  try {
+    const employees = await db.employee.findMany({
+      where: { organizationId: organizationId ?? "none" },
+      select: { id: true, employeeCode: true },
+    }) as Array<{ id: string; employeeCode: string }>;
+    const empByCode = new Map(employees.map((e) => [e.employeeCode, e.id]));
+
     const dayKey = (t: Date) => {
       const d = new Date(t);
       d.setHours(0, 0, 0, 0);
@@ -155,21 +208,44 @@ export async function ingestClockEvents(opts: {
         result.attendanceRows++;
       }
     }
-
-    if (opts.deviceRef?.id) {
-      await db.attendanceDevice.update({
-        where: { id: opts.deviceRef.id },
-        data: {
-          ...(opts.devicePassword ? { apiKey: opts.devicePassword } : {}),
-          status: "Online",
-          lastSyncAt: new Date(),
-          lastError: null,
-        },
-      });
-    }
   } catch {
     result.dbUnreachable = true;
   }
 
   return result;
+}
+
+/* Stage events as PENDING — nothing reaches Attendance until the admin picks
+   them in the Import Attendance GUI and calls the bridge import endpoint. */
+export async function stageClockEvents(opts: {
+  organizationId: string | null;
+  events: ClockEventInput[];
+  deviceRef?: { id: string | null } | null;
+  devicePassword?: string | null;
+}): Promise<StageResult> {
+  return writeClockEventRows({ ...opts, pending: true });
+}
+
+/* Write + roll up immediately (user-initiated flows: web ISAPI pull, API-key
+   import). Kept for those callers — Bridge sync now stages instead. */
+export async function ingestClockEvents(opts: {
+  organizationId: string | null;
+  events: ClockEventInput[];
+  sourceLabel: string; // device name or ip — appears in the attendance note
+  deviceRef?: { id: string | null } | null;
+  devicePassword?: string | null;
+}): Promise<IngestResult> {
+  const staged = await writeClockEventRows({ ...opts, pending: false });
+  const rolled = await rollupClockEvents({
+    organizationId: opts.organizationId,
+    events: opts.events,
+    sourceLabel: opts.sourceLabel,
+  });
+  return {
+    persisted: staged.persisted,
+    attendanceRows: rolled.attendanceRows,
+    matched: rolled.matched,
+    unmatchedPunches: rolled.unmatchedPunches,
+    dbUnreachable: staged.dbUnreachable || rolled.dbUnreachable,
+  };
 }

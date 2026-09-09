@@ -18,10 +18,10 @@ import {
   Sun,
   User,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
-import { BrandLogo, StatusBadge, BrandPanel } from "./BrandPanel"
+import { BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
+import { UkuuLogoMark } from "@/components/landing/Header"
 
 type Mode = "signin" | "signup" | "forgot"
 type Banner = { kind: "success" | "error"; text: string } | null
@@ -44,12 +44,11 @@ function isSafeReturn(url: string): boolean {
 /**
  * The full UKUU HR authentication experience:
  * split-screen brand panel + auth card with sign-in, sign-up and
- * password-recovery flows (mock backend), theme toggle, Google SSO stub.
+ * password-recovery flows (mock backend), theme toggle.
  */
 export default function AuthExperience() {
   const params = useSearchParams()
   const router = useRouter()
-  const { toast } = useToast()
 
   const returnUrl = useMemo(() => {
     const raw = params.get("ReturnUrl") ?? params.get("returnUrl") ?? ""
@@ -78,7 +77,6 @@ export default function AuthExperience() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [banner, setBanner] = useState<Banner>(null)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
   const [done, setDone] = useState(false)
 
   const emailRef = useRef<HTMLInputElement>(null)
@@ -117,6 +115,8 @@ export default function AuthExperience() {
         text: "Workspace created successfully — sign in to continue.",
       })
     }
+    const oauthError = params.get("oauth_error")
+    if (oauthError) setBanner({ kind: "error", text: oauthError })
   }, [params])
 
   const toggleTheme = useCallback(() => {
@@ -245,25 +245,13 @@ export default function AuthExperience() {
     [loading, done, validate, mode, email, password, remember, name, returnUrl, router]
   )
 
-  const onGoogle = useCallback(async () => {
-    if (googleLoading || loading || done) return
-    setGoogleLoading(true)
-    await new Promise((r) => setTimeout(r, 750))
-    setGoogleLoading(false)
-    toast({
-      title: "SSO isn't configured yet",
-      description:
-        "Google sign-in needs OAuth credentials in this demo — use your email for now.",
-    })
-  }, [googleLoading, loading, done, toast])
-
   const score = passwordScore(password)
 
   /* ---------- render ---------- */
   return (
     <div className={`au-root${theme === "dark" ? " au-dark" : ""}${IS_ADMIN_PLATFORM ? " au-root--admin" : ""}`}>
-      <div className="au-shell">
-        <BrandPanel />
+      <div className={`au-shell${IS_ADMIN_PLATFORM ? " au-shell--admin" : ""}`}>
+        {!IS_ADMIN_PLATFORM && <BrandPanel />}
 
         <main className="au-main">
           <div className="au-topbar">
@@ -290,12 +278,26 @@ export default function AuthExperience() {
           </div>
 
           <section style={{ width: "100%", display: "grid", justifyItems: "center" }}>
-            <div className="au-mobile-brand">
-              <BrandLogo />
-              <StatusBadge />
-            </div>
-
             <div className="au-card" key={done && mode === "forgot" ? "done" : mode}>
+              {/* Brand lockup on the card itself — the admin console has no side
+                  panel, and mobile hides the panel, so the logo must live here. */}
+              <a
+                className="au-card-brand"
+                href={HOME_HREF}
+                aria-label={IS_ADMIN_PLATFORM ? "Ukuu platform admin home" : "Ukuu HR home"}
+              >
+                <span className="au-card-brand-badge">
+                  <UkuuLogoMark size={22} white />
+                </span>
+                <span className="au-card-brand-text">
+                  <span className="au-card-brand-name">
+                    {IS_ADMIN_PLATFORM ? "UKUU PLATFORM" : "UKUU HR"}
+                  </span>
+                  <span className="au-card-brand-sub">
+                    {IS_ADMIN_PLATFORM ? "Admin Console" : "HRMS Platform"}
+                  </span>
+                </span>
+              </a>
               <div className="au-swap">
                 {done && mode === "forgot" ? (
                   <ForgotDone email={email.trim()} onBack={() => switchMode("signin")} />
@@ -570,19 +572,13 @@ export default function AuthExperience() {
                       <span className="au-divider-text">OR CONTINUE WITH</span>
                     </div>
 
-                    <button
-                      type="button"
+                    <a
                       className="au-btn-google"
-                      onClick={onGoogle}
-                      disabled={googleLoading || loading || done}
+                      href={`/api/auth/google/start?mode=signin${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ""}`}
                     >
-                      {googleLoading ? (
-                        <Loader2 size={18} className="au-spinner" />
-                      ) : (
-                        <GoogleLogo size={18} />
-                      )}
-                      {googleLoading ? "Redirecting to Google…" : "Continue with Google"}
-                    </button>
+                      <GoogleLogo size={18} />
+                      Continue with Google
+                    </a>
 
                     <p className="au-cardfoot">
                       {mode === "signin" &&

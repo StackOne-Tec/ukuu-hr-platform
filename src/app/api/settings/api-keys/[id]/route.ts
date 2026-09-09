@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { currentOrg } from "@/lib/session";
+import { currentOrg, requireVerifiedEmail } from "@/lib/session";
 import { generateApiKey, hashApiKey, lastFour, maskApiKey, scopesToLabels } from "@/lib/apikey";
+import { dbErrorMessage, logDbError } from "@/lib/db-error";
 
 export const dynamic = "force-dynamic";
-
-const DB_DOWN = "The database is temporarily unreachable. Please try again in a moment.";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Ctx) {
+  const gate = await requireVerifiedEmail();
+  if (!gate.verified) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
   try {
     const { id } = await params;
     const existing = await db.apiKey.findUnique({ where: { id } });
@@ -53,12 +56,17 @@ export async function POST(_req: Request, { params }: Ctx) {
       scopeLabels: scopesToLabels(rotated.scopes),
       rotatedAt: rotated.rotatedAt?.toISOString() ?? null,
     });
-  } catch {
-    return NextResponse.json({ ok: false, error: DB_DOWN, dbDown: true }, { status: 503 });
+  } catch (e) {
+    logDbError(e, "settings.api-keys.rotate");
+    return NextResponse.json({ ok: false, error: dbErrorMessage(e), dbDown: true }, { status: 503 });
   }
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {
+  const gate = await requireVerifiedEmail();
+  if (!gate.verified) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
   try {
     const { id } = await params;
     const existing = await db.apiKey.findUnique({ where: { id } });
@@ -81,7 +89,8 @@ export async function DELETE(_req: Request, { params }: Ctx) {
       })
       .catch(() => {});
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false, error: DB_DOWN, dbDown: true }, { status: 503 });
+  } catch (e) {
+    logDbError(e, "settings.api-keys.delete");
+    return NextResponse.json({ ok: false, error: dbErrorMessage(e), dbDown: true }, { status: 503 });
   }
 }

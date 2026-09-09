@@ -284,105 +284,6 @@ export function Compare() {
   )
 }
 
-/* ─── Pricing ─── */
-export function Pricing() {
-  const tiers = [
-    {
-      name: "Starter",
-      amount: "Free",
-      period: "14-day trial",
-      features: [
-        "Up to 10 employees",
-        "All 9 core modules",
-        "Demo data preloaded",
-        "Email support",
-      ],
-      cta: "Start free trial",
-      featured: false,
-    },
-    {
-      name: "Professional",
-      amount: "$3",
-      period: "/employee / month",
-      features: [
-        "Up to 250 employees",
-        "Multi-branch & multi-org",
-        "Device sync (Hikvision · ZKTeco)",
-        "Payslip email via Resend",
-        "Audit log + CSV export",
-        "Priority support (24h)",
-      ],
-      cta: "Choose Professional",
-      featured: true,
-    },
-    {
-      name: "Enterprise",
-      amount: "Custom",
-      period: "Annual contract",
-      features: [
-        "Unlimited employees",
-        "Multi-tenant with SSO",
-        "On-prem / private cloud",
-        "Custom country compliance",
-        "SLA + dedicated CSM",
-        "API rate-limit increases",
-      ],
-      cta: "Talk to sales",
-      featured: false,
-    },
-  ]
-
-  return (
-    <section className="lp-pricing" id="pricing">
-      <div className="lp-pricing-inner">
-        <Reveal>
-          <p className="lp-section-eyebrow lp-section-eyebrow--light">Pricing</p>
-          <h2 className="lp-section-title lp-section-title--light">
-            One platform. Simple pricing.
-          </h2>
-          <p className="lp-section-sub lp-section-sub--light">
-            Per-employee pricing means you only pay for what you use. Switch
-            plans any time. 14-day free trial, no credit card required.
-          </p>
-        </Reveal>
-
-        <div className="lp-pricing-grid">
-          {tiers.map((t, i) => (
-            <Reveal
-              key={t.name}
-              delay={i * 90}
-              className={`lp-pricing-card${t.featured ? " lp-pricing-card--featured" : ""}`}
-            >
-              {t.featured && (
-                <span className="lp-pricing-badge">Most popular</span>
-              )}
-              <div className="lp-pricing-name">{t.name}</div>
-              <div className="lp-pricing-price">
-                <span className="lp-pricing-amount">{t.amount}</span>
-                <span className="lp-pricing-period">{t.period}</span>
-              </div>
-              <ul className="lp-pricing-features">
-                {t.features.map((f) => (
-                  <li key={f}>
-                    <MIcon name="check" size={17} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#cta"
-                className={`lp-pricing-btn${t.featured ? " lp-pricing-btn--featured" : ""}`}
-              >
-                {t.cta}
-              </a>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 /* ─── FAQ ─── */
 export function Faq() {
   const items: { q: string; a: React.ReactNode }[] = [
@@ -555,10 +456,6 @@ export function Footer() {
             <p>
               A complete HR management system for African businesses. Employees,
               attendance, leave and statutory compliance — all in one platform.
-            </p>
-            <p className="lp-footer-tech">
-              Built with .NET 10, Blazor Server, EF Core &amp; PostgreSQL. Runs
-              in Docker on any OS.
             </p>
           </div>
 

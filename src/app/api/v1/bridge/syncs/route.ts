@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to load sync history right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to load sync history right now.", "v1.bridge.syncs") },
       { status: 503 }
     );
   }

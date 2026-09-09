@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbErrorMessage, isKnownDbError, logDbError } from "@/lib/db-error";
 import { currentOrg } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,10 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, id: created.id });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
+    logDbError(e, "devices.create");
+    return NextResponse.json(
+      { ok: false, error: dbErrorMessage(e, "The attendance device could not be saved. Please try again.") },
+      { status: isKnownDbError(e) ? 503 : 500 }
+    );
   }
 }

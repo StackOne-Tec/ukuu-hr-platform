@@ -21,7 +21,6 @@ export default async function DevicesPage() {
     <AdminShell activeKey="devices">
       <div className="bk-admin-section-header" data-tour="page-devices">
         <div className="bk-admin-section-header-left">
-          <div className="bk-admin-greeting">FR-001 · Third-party device integration</div>
           <h1 className="bk-admin-h1">Devices</h1>
           <p className="bk-admin-sub">{online} of {devices.length} device(s) connected · REST / CSV / SDK / TCP</p>
         </div>

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { ensureDemoOrg } from "@/lib/org"
 import { createWebSession, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
+import { dbErrorMessage, logDbError } from "@/lib/db-error"
+import {
+  authErrorMessage,
+  FirebaseAuthError,
+  verifyCredentials,
+} from "@/lib/firebase-auth"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -64,16 +70,23 @@ export async function POST(req: Request) {
 
   try {
     const demo = await ensureDemoOrg()
+    // Credentials are verified by Firebase Auth (never by comparing stored
+    // plaintext). Legacy plaintext accounts are migrated transparently on
+    // their next successful sign-in. Same generic error for unknown email and
+    // wrong password (no account enumeration).
+    const identity = await verifyCredentials(email, password)
     const user = await db.userAccount.findUnique({ where: { email } })
-    // Real verification: the password must match the one stored on the account.
-    // Same generic error for unknown email and wrong password (no account
-    // enumeration), and accounts are never auto-provisioned or re-keyed here.
-    if (!user || !user.passwordHash || user.passwordHash !== password) {
+    if (!user) {
       return NextResponse.json(
         { ok: false, error: "Incorrect email or password." },
         { status: 401 }
       )
     }
+    // Keep the stored verification status fresh so sensitive actions can be
+    // gated on it (Firebase is the source of truth).
+    await db.userAccount
+      .update({ where: { email }, data: { emailVerified: identity.emailVerified === true } })
+      .catch(() => {})
     const organizationId = user.organizationId ?? demo?.id ?? null
     const sessionToken = organizationId
       ? await createWebSession({ userId: user.id, organizationId, remember })
@@ -96,9 +109,27 @@ export async function POST(req: Request) {
       })
     }
     return res
-  } catch {
+  } catch (e) {
+    // Firebase credential failures get a friendly message and a real status
+    // code; everything else (e.g. the database being unreachable) is logged
+    // and degraded as a database failure.
+    if (e instanceof FirebaseAuthError) {
+      const status =
+        e.code === "USER_DISABLED"
+          ? 403
+          : e.code === "TOO_MANY_ATTEMPTS_TRY_LATER"
+            ? 429
+            : e.code === "MISSING_CONFIG" || e.code === "OPERATION_NOT_ALLOWED"
+              ? 503
+              : 401
+      return NextResponse.json(
+        { ok: false, error: authErrorMessage(e, "Incorrect email or password.") },
+        { status }
+      )
+    }
+    logDbError(e, "auth.login")
     return NextResponse.json(
-      { ok: false, error: "The database is temporarily unreachable. Please try again in a moment." },
+      { ok: false, error: dbErrorMessage(e) },
       { status: 503 }
     )
   }

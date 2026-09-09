@@ -3,30 +3,12 @@
 import { MIcon } from "./icons"
 import { Reveal } from "./Reveal"
 
-export function TrustStrip() {
-  return (
-    <section className="lp-trust-strip">
-      <div className="lp-trust-strip-inner">
-        <span className="lp-muted">Trusted by teams in</span>
-        <span className="lp-flag-dot" style={{ background: "#009739" }} title="Zambia" />
-        <span style={{ fontWeight: 700 }}>Zambia</span>
-        <span className="lp-trust-divider">·</span>
-        <span className="lp-flag-dot" style={{ background: "#1EB53A" }} title="Tanzania" />
-        <span style={{ fontWeight: 700 }}>Tanzania</span>
-        <span className="lp-trust-divider">·</span>
-        <span className="lp-flag-dot" style={{ background: "#0077C8" }} title="Malawi" />
-        <span style={{ fontWeight: 700 }}>Malawi</span>
-      </div>
-    </section>
-  )
-}
-
 type Feature = {
   icon: "badge" | "schedule" | "event_available" | "view_timeline" | "security" | "analytics"
   title: string
   desc: string
   chips: string[]
-  variant: "dark" | "accent" | "light"
+  variant: "dark" | "light"
   span?: "2" | "full"
 }
 
@@ -44,7 +26,7 @@ const FEATURES: Feature[] = [
     title: "Time & Attendance",
     desc: "Daily timesheets, clock-in/out, status filters — present, late, absent, on-leave, remote. Worked-hours computation built in.",
     chips: ["Clock-in", "Timesheets"],
-    variant: "accent",
+    variant: "dark",
   },
   {
     icon: "event_available",
@@ -59,6 +41,7 @@ const FEATURES: Feature[] = [
     desc: "Department × shift matrix with day-of-week bitmask. Morning, mid & night rotations with weekly coverage view.",
     chips: ["Rotations", "Coverage"],
     variant: "light",
+    span: "2",
   },
   {
     icon: "security",
@@ -66,7 +49,7 @@ const FEATURES: Feature[] = [
     desc: "Configurable MFA, SSO, IP allowlist, session timeout. Full audit log of every user-management action — export for SOC2 & ISO 27001 evidence.",
     chips: ["MFA", "SSO", "Audit Trail"],
     variant: "dark",
-    span: "2",
+    span: "full",
   },
   {
     icon: "analytics",

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { sendEmail, passwordResetEmailHtml } from "@/lib/email"
 import { db } from "@/lib/db"
+import { logDbError } from "@/lib/db-error"
+import { generatePasswordResetLink } from "@/lib/firebase-auth"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -32,14 +34,28 @@ export async function POST(req: Request) {
   // not leak whether the address exists). Only known users get a real email.
   const user = await db.userAccount
     .findUnique({ where: { email }, select: { name: true } })
-    .catch(() => null)
+    .catch((e) => {
+      // Lookup failures are logged server-side but still return the same
+      // response as a missing account (no account enumeration).
+      logDbError(e, "auth.forgot")
+      return null
+    })
   if (user) {
     const origin = new URL(req.url).origin
-    void sendEmail(
-      email,
-      "Reset your Ukuu HR password",
-      passwordResetEmailHtml(user.name ?? "", `${origin}/login`)
-    )
+    try {
+      // The reset link is minted by Firebase Auth (it embeds a signed code
+      // that lets the user choose a new password); we deliver it in our own
+      // branded email. Unknown accounts simply get no email — the response
+      // below never reveals whether the account exists.
+      const resetUrl = await generatePasswordResetLink(email, `${origin}/login`)
+      void sendEmail(
+        email,
+        "Reset your Ukuu HR password",
+        passwordResetEmailHtml(user.name ?? "", resetUrl)
+      )
+    } catch (e) {
+      logDbError(e, "auth.forgot.resetLink")
+    }
   }
 
   return NextResponse.json({

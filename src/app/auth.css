@@ -363,6 +363,77 @@
   box-shadow: 0 24px 48px -12px rgba(46, 26, 102, 0.14);
 }
 
+/* centered brand lockup on the auth card (all platforms, all modes) */
+.au-card-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  color: #14101f;
+  text-decoration: none;
+}
+
+.au-card-brand-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 22px -8px rgba(109, 40, 217, 0.55);
+}
+
+.au-card-brand-name {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: inherit;
+}
+
+.au-card-brand-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.au-card-brand:hover .au-card-brand-badge {
+  transform: translateY(-1px);
+}
+
+.au-card-brand-badge {
+  transition: transform 0.16s ease;
+}
+
+/* admin console — gold identity, matching the console's accents */
+.au-root--admin .au-card-brand-badge {
+  background: linear-gradient(135deg, #dfb458 0%, #d39b3a 100%);
+  box-shadow: 0 10px 22px -8px rgba(211, 155, 58, 0.55);
+}
+
+.au-root--admin .au-card-brand-sub {
+  color: #b07f22;
+}
+
+/* dark card theme */
+.au-root.au-dark .au-card-brand {
+  color: #f5f2ff;
+}
+
+.au-root.au-dark .au-card-brand-sub {
+  color: #c4b5fd;
+}
+
+.au-root.au-dark.au-root--admin .au-card-brand-sub {
+  color: #d9b86a;
+}
+
 .au-swap {
   animation: au-swap 340ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
 }
@@ -726,7 +797,7 @@
   animation: au-spin 0.8s linear infinite;
 }
 
-/* --- divider --- */
+/* --- Google OAuth option --- */
 .au-divider {
   display: flex;
   align-items: center;
@@ -750,7 +821,6 @@
   white-space: nowrap;
 }
 
-/* --- google button --- */
 .au-btn-google {
   width: 100%;
   height: 48px;
@@ -766,22 +836,14 @@
   justify-content: center;
   gap: 11px;
   cursor: pointer;
+  text-decoration: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, background 0.16s ease;
 }
 
-.au-btn-google:hover:not(:disabled) {
+.au-btn-google:hover {
   border-color: #cfc7e8;
   box-shadow: 0 8px 18px rgba(40, 25, 90, 0.09);
   transform: translateY(-1px);
-}
-
-.au-btn-google:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.au-btn-google:disabled {
-  opacity: 0.7;
-  cursor: wait;
 }
 
 /* --- card footer --- */
@@ -902,10 +964,24 @@
   border-color: #4a3780;
 }
 
-.au-root.au-dark .au-card {
-  background: #150d31;
-  border-color: rgba(167, 139, 250, 0.17);
-  box-shadow: 0 28px 56px -12px rgba(0, 0, 0, 0.55);
+.au-root.au-dark .au-divider::before,
+.au-root.au-dark .au-divider::after {
+  background: rgba(167, 139, 250, 0.18);
+}
+
+.au-root.au-dark .au-divider-text {
+  color: #8a83ae;
+}
+
+.au-root.au-dark .au-btn-google {
+  background: #1a1138;
+  border-color: #2e2058;
+  color: #d9d4f2;
+}
+
+.au-root.au-dark .au-btn-google:hover {
+  border-color: #4a3780;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
 .au-root.au-dark .au-card-h {
@@ -970,26 +1046,6 @@
 
 .au-root.au-dark .au-check-label {
   color: #a39ec4;
-}
-
-.au-root.au-dark .au-divider::before,
-.au-root.au-dark .au-divider::after {
-  background: rgba(167, 139, 250, 0.18);
-}
-
-.au-root.au-dark .au-divider-text {
-  color: #8a83ae;
-}
-
-.au-root.au-dark .au-btn-google {
-  background: #1a1138;
-  border-color: #2e2058;
-  color: #d9d4f2;
-}
-
-.au-root.au-dark .au-btn-google:hover:not(:disabled) {
-  border-color: #4a3780;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
 }
 
 .au-root.au-dark .au-cardfoot {
@@ -1217,6 +1273,11 @@
    Applied via `.au-root--admin` (NEXT_PUBLIC_PLATFORM=admin), so the
    user portal keeps its original look untouched.
    ════════════════════════════════════════════════════════════════════ */
+
+/* admin login uses the full viewport for the operator sign-in form */
+.au-shell--admin {
+  grid-template-columns: 1fr;
+}
 
 /* deep navy console panel instead of the purple HR panel */
 .au-root--admin .au-brand {

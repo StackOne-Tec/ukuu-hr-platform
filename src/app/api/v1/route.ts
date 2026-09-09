@@ -43,6 +43,6 @@ export async function GET(req: Request) {
       endpoints: ENDPOINTS,
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: apiErrorMessage(e, "API temporarily unavailable.") }, { status: 503 });
+    return NextResponse.json({ ok: false, error: apiErrorMessage(e, "API temporarily unavailable.", "v1.root") }, { status: 503 });
   }
 }

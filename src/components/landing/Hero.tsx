@@ -118,7 +118,7 @@ export function Hero() {
         </h1>
         <p className="lp-hero-sub">
           Onboard, track, approve, and schedule — one platform for the entire
-          employee lifecycle. Built for Zambia, Tanzania &amp; Malawi.
+          employee lifecycle.
         </p>
 
         <div className="lp-hero-actions">
@@ -147,18 +147,6 @@ export function Hero() {
             <div className="lp-float-badge-text">
               <strong>9 Modules</strong>
               Full HR suite
-            </div>
-          </div>
-          <div className="lp-float-badge">
-            <div
-              className="lp-float-badge-icon"
-              style={{ background: "rgba(123,47,190,0.15)" }}
-            >
-              <MIcon name="public" size={20} className="lp-ico-lavender" />
-            </div>
-            <div className="lp-float-badge-text">
-              <strong>3 Countries</strong>
-              Local compliance
             </div>
           </div>
           <div className="lp-float-badge">

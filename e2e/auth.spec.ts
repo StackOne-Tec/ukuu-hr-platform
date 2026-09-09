@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ctx, RUN_PREFIX } from "./ctx";
+import { ctx } from "./ctx";
 import { signInViaUi, signupViaUi } from "./helpers";
 
 /**
@@ -20,14 +20,16 @@ test.describe("Signup → isolated workspace", () => {
     // Workspace banner after redirect
     await expect(page.locator(".au-banner--success")).toContainText("Workspace created successfully");
 
-    // The organization really exists, isolated, with its admin account
-    const slug = `${RUN_PREFIX}${tag}`;
-    const orgs = await ctx.q(
-      `SELECT o.slug, u.email FROM "Organization" o JOIN "UserAccount" u ON u."organizationId" = o.id WHERE u.email = $1`,
-      [email]
-    );
-    expect(orgs.length).toBe(1);
-    expect(orgs[0].email).toBe(email);
+    // The organization really exists, isolated, with its admin account.
+    // (Firestore-native assertion — the org is found via the admin user's
+    // organizationId, since the signup UI sends an org name, not a slug.)
+    const users = await ctx.firestore.collection("UserAccount").where("email", "==", email).get();
+    expect(users.size).toBe(1);
+    const orgId = users.docs[0].data().organizationId as string;
+    expect(orgId).toBeTruthy();
+    const org = await ctx.firestore.collection("Organization").doc(orgId).get();
+    expect(org.exists).toBe(true);
+    expect(org.data()?.name).toBe(`E2E Signup Org ${tag}`);
   });
 
   test("signup validation blocks bad input client-side", async ({ page }) => {

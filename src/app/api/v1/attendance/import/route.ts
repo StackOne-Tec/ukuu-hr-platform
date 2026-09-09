@@ -164,7 +164,7 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: apiErrorMessage(e, "Unable to import attendance right now.") },
+      { ok: false, error: apiErrorMessage(e, "Unable to import attendance right now.", "v1.attendance.import") },
       { status: 503 }
     );
   }

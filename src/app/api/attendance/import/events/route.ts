@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logDbError } from "@/lib/db-error";
 import { currentOrg } from "@/lib/session";
 import { fetchDeviceEvents, fetchDeviceUsers } from "@/lib/isapi";
 import { ingestClockEvents } from "@/lib/clock";
@@ -44,7 +45,8 @@ export async function POST(req: Request) {
         where: { OR: [{ ipAddress: host }, { name: deviceNameHint || undefined }] },
         select: { id: true, apiKey: true },
       });
-    } catch {
+    } catch (e) {
+      logDbError(e, "attendance.import.events.deviceLookup");
       /* DB unreachable — import still works, just nothing is persisted */
     }
 
@@ -74,7 +76,8 @@ export async function POST(req: Request) {
     try {
       const org = await currentOrg();
       orgId = org?.id ?? null;
-    } catch {
+    } catch (e) {
+      logDbError(e, "attendance.import.events.orgLookup");
       /* DB unreachable — the ingest helper reports dbUnreachable */
     }
     const ingested = await ingestClockEvents({

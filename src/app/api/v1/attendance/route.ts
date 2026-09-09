@@ -47,6 +47,6 @@ export async function GET(req: Request) {
       })),
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: apiErrorMessage(e, "API temporarily unavailable.") }, { status: 503 });
+    return NextResponse.json({ ok: false, error: apiErrorMessage(e, "API temporarily unavailable.", "v1.attendance") }, { status: 503 });
   }
 }

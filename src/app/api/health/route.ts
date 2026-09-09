@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/firebase";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   let database = "unavailable";
   try {
-    await db.$queryRaw`SELECT 1`;
-    database = "connected";
+    // Cheap Firestore connectivity probe — a 1-doc read against a scratch
+    // collection that auto-creates. Returns "connected" when Firestore
+    // responds at all.
+    const snap = await getDb().collection("_health").limit(1).get();
+    if (snap) database = "connected";
   } catch {
     // Database unreachable: the app itself is still healthy,
     // report database state for observability.
