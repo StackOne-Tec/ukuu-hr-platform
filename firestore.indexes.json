@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "apiKey",
+      "collectionGroup": "ApiKey",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "collectionGroup": "attendance",
+      "collectionGroup": "Attendance",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -33,7 +33,21 @@
       ]
     },
     {
-      "collectionGroup": "attendance",
+      "collectionGroup": "Attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Attendance",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -47,7 +61,7 @@
       ]
     },
     {
-      "collectionGroup": "attendance",
+      "collectionGroup": "Attendance",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -59,17 +73,45 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "note",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "attendanceDevice",
+      "collectionGroup": "Attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employeeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "employeeId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "AttendanceDevice",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -83,7 +125,49 @@
       ]
     },
     {
-      "collectionGroup": "auditLog",
+      "collectionGroup": "AttendanceDevice",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "AttendanceDevice",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ipAddress",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "AttendanceDevice",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "id",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "AuditLog",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -97,7 +181,7 @@
       ]
     },
     {
-      "collectionGroup": "employee",
+      "collectionGroup": "Employee",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -111,7 +195,7 @@
       ]
     },
     {
-      "collectionGroup": "employee",
+      "collectionGroup": "Employee",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -125,7 +209,7 @@
       ]
     },
     {
-      "collectionGroup": "employee",
+      "collectionGroup": "Employee",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -143,7 +227,7 @@
       ]
     },
     {
-      "collectionGroup": "employeeDocument",
+      "collectionGroup": "EmployeeDocument",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -157,7 +241,7 @@
       ]
     },
     {
-      "collectionGroup": "hrConversation",
+      "collectionGroup": "HrConversation",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -171,7 +255,21 @@
       ]
     },
     {
-      "collectionGroup": "leaveHoliday",
+      "collectionGroup": "HrMessage",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "conversationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sentAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "LeaveHoliday",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -185,7 +283,7 @@
       ]
     },
     {
-      "collectionGroup": "leaveRequest",
+      "collectionGroup": "LeaveRequest",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -199,7 +297,21 @@
       ]
     },
     {
-      "collectionGroup": "notification",
+      "collectionGroup": "LeaveRequest",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employeeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Notification",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -213,7 +325,35 @@
       ]
     },
     {
-      "collectionGroup": "overtimeRecord",
+      "collectionGroup": "Notification",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "OvertimeRecord",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "OvertimeRecord",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -227,7 +367,21 @@
       ]
     },
     {
-      "collectionGroup": "payrollRun",
+      "collectionGroup": "OvertimeRecord",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "PayrollRun",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -245,7 +399,7 @@
       ]
     },
     {
-      "collectionGroup": "payrollRun",
+      "collectionGroup": "PayrollRun",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -263,7 +417,7 @@
       ]
     },
     {
-      "collectionGroup": "syncRun",
+      "collectionGroup": "SyncRun",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -277,11 +431,79 @@
       ]
     },
     {
-      "collectionGroup": "unifiedClockEvent",
+      "collectionGroup": "SyncRun",
       "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deviceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "UnifiedClockEvent",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "eventTime",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "UnifiedClockEvent",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "employeeCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "eventTime",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employeeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "UnifiedClockEvent",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pending",
           "order": "ASCENDING"
         },
         {

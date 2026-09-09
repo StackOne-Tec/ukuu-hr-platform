@@ -20,7 +20,10 @@ export function googleRedirectUri(req: NextRequest): string {
   const configured = process.env.GOOGLE_REDIRECT_URI?.trim()
   if (configured) return configured
 
-  return `${req.nextUrl.protocol}//${req.nextUrl.hostname}/api/auth/google/callback`
+  // `host` (not `hostname`) keeps the port — the dev server runs on :3000 and
+  // Google compares redirect URIs character-for-character against the
+  // registered value (http://localhost:3000/api/auth/google/callback).
+  return `${req.nextUrl.protocol}//${req.nextUrl.host}/api/auth/google/callback`
 }
 
 export function createOAuthState(): string {

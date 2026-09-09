@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
         grant_type: "authorization_code",
       }),
       cache: "no-store",
+      // Never let a stalled Google token exchange hang the callback.
+      signal: AbortSignal.timeout(20_000),
     })
     const token = (await tokenResponse.json().catch(() => null)) as {
       access_token?: string
@@ -69,6 +71,7 @@ export async function GET(req: NextRequest) {
     const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
       headers: { Authorization: `Bearer ${token.access_token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
     })
     const profile = (await profileResponse.json().catch(() => null)) as {
       sub?: string

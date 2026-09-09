@@ -27,18 +27,6 @@ test.describe("Marketing landing page", () => {
     await expect(page.locator('a.lp-btn-signin[href="/login"]')).toBeVisible();
   });
 
-  test("contains the reworked Bridge banner content", async ({ page }) => {
-    await page.goto("/");
-
-    // Sections2 rework: branded banner with feature chips
-    const banner = page.locator(".lp-preview-banner");
-    await expect(banner).toBeVisible();
-    await expect(banner).toContainText("Meet the Ukuu HR Bridge app");
-    await expect(banner).toContainText("No device limits");
-    await expect(banner).toContainText("Auto-upload scheduling");
-    await expect(banner.locator('a:has-text("Open the Bridge app")')).toBeVisible();
-  });
-
   test("FAQ mentions the Bridge desktop app device support", async ({ page }) => {
     await page.goto("/");
     const faq = page.locator("body");

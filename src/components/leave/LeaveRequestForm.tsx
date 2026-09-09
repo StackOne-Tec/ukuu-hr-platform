@@ -40,7 +40,7 @@ export default function LeaveRequestForm({
   };
 
   return (
-    <div className="bk-admin-card" style={{ maxWidth: 640 }}>
+    <div className="bk-admin-card">
       <div className="bk-admin-card-content">
         <div className="bk-field">
           <label className="bk-label">Employee</label>

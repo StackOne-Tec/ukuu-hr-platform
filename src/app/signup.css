@@ -671,6 +671,50 @@
   background: rgba(109, 95, 192, 0.09);
 }
 
+/* phone number country-code dropdown */
+.sg-phone-code {
+  width: 108px;
+  flex-shrink: 0;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid #e1deeb;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2394A3B8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 12px center;
+  padding: 0 30px 0 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sg-phone-code:hover {
+  border-color: #d4cfdd;
+}
+
+.sg-phone-code:focus {
+  border-color: #6d5fc0;
+  box-shadow: 0 0 0 3.5px rgba(109, 95, 192, 0.14);
+}
+
+.sg-root.sg-dark .sg-phone-code {
+  background-color: #171230;
+  border-color: #2e2554;
+  color: #ede9ff;
+}
+
+.sg-root.sg-dark .sg-phone-code:hover {
+  border-color: #3d3168;
+}
+
+.sg-root.sg-dark .sg-phone-code:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3.5px rgba(139, 92, 246, 0.18);
+}
+
 .sg-input.sg-invalid,
 .sg-select.sg-invalid,
 .sg-input.sg-invalid:focus,
@@ -841,32 +885,6 @@
   animation: sg-spin 0.8s linear infinite;
 }
 
-/* --- benefits panel --- */
-.sg-benefits {
-  margin-top: 22px;
-  border-radius: 16px;
-  padding: 20px 22px;
-  background: var(--sg-lav-bg);
-  border: 1px solid #e8e3f3;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 18px;
-}
-
-.sg-benefit {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #4b4460;
-}
-
-.sg-benefit svg {
-  color: #4338ca;
-  flex-shrink: 0;
-}
-
 /* --- footer --- */
 .sg-foot {
   margin-top: 22px;
@@ -939,8 +957,7 @@
 
 .sg-root.sg-dark .sg-title-sub,
 .sg-root.sg-dark .sg-terms-label,
-.sg-root.sg-dark .sg-foot,
-.sg-root.sg-dark .sg-benefit {
+.sg-root.sg-dark .sg-foot {
   color: #a39ec4;
 }
 
@@ -1005,15 +1022,6 @@
 .sg-root.sg-dark .sg-terms input:checked + .sg-check {
   background: #6d5fc0;
   border-color: #6d5fc0;
-}
-
-.sg-root.sg-dark .sg-benefits {
-  background: rgba(124, 58, 237, 0.1);
-  border-color: rgba(139, 92, 246, 0.22);
-}
-
-.sg-root.sg-dark .sg-benefit svg {
-  color: #a78bfa;
 }
 
 .sg-root.sg-dark .sg-err {
@@ -1160,11 +1168,6 @@
 
   .sg-title {
     font-size: 27px;
-  }
-
-  .sg-benefits {
-    grid-template-columns: 1fr;
-    padding: 16px 18px;
   }
 
   .sg-terms {

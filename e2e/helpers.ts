@@ -56,25 +56,24 @@ export async function signInViaUi(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: /sign in to dashboard/i }).click();
 }
 
-/** Create an API key directly in the DB (returns the plaintext the API would return once). */
+/** Create an API key directly in Firestore (returns the plaintext the API would return once). */
 export async function createApiKeyDirect(orgId: string, name: string, scopes: string) {
   const { createHash, randomBytes } = await import("node:crypto");
   const key = `ukuu_live_${randomBytes(24).toString("hex")}`;
   const keyHash = createHash("sha256").update(key, "utf8").digest("hex");
-  const rows = await ctx.q(
-    `INSERT INTO "ApiKey" (id, "organizationId", name, prefix, "keyHash", "lastFour", scopes, "isActive", "createdAt")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, true, now()) RETURNING id`,
-    [
-      `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
-      orgId,
-      name,
-      key.slice(0, 12),
-      keyHash,
-      key.slice(-4),
-      scopes,
-    ]
-  );
-  return { id: rows[0].id, key };
+  const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  await ctx.firestore.collection("ApiKey").doc(id).set({
+    id,
+    organizationId: orgId,
+    name,
+    prefix: key.slice(0, 12),
+    keyHash,
+    lastFour: key.slice(-4),
+    scopes,
+    isActive: true,
+    createdAt: new Date(),
+  });
+  return { id, key };
 }
 
 /** Convenience: unauthenticated API request helpers against the running app. */

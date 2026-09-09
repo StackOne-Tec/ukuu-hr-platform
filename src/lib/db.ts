@@ -2,6 +2,7 @@ import "server-only";
 import {
   Filter,
   type Query,
+  type Transaction,
   type WhereFilterOp,
 } from "firebase-admin/firestore";
 import { getDb } from "@/lib/firebase";
@@ -84,6 +85,10 @@ function cuid(): string {
   const random = Math.random().toString(36).slice(2, 10);
   return `c${time}${random}`;
 }
+
+/** Generate a new row id — used by callers that must mint an id themselves
+    (e.g. creating a document inside a $transaction). */
+export const newId = cuid;
 
 function isDate(value: unknown): value is Date {
   return value instanceof Date;
@@ -263,6 +268,19 @@ function compileWhere(where: Where | undefined): Compiled {
         const needle = String(operator.contains).toLowerCase();
         addCheck((row) => String(get(row) ?? "").toLowerCase().includes(needle));
       }
+      if (operator.arrayContains !== undefined) {
+        constraints.push({ field, op: "array-contains", value: operator.arrayContains });
+        checks.push((row) => Array.isArray(get(row)) && (get(row) as unknown[]).includes(operator.arrayContains));
+      }
+      if (operator.arrayContainsAny !== undefined) {
+        const items = Array.isArray(operator.arrayContainsAny) ? operator.arrayContainsAny : [];
+        if (items.length && items.length <= 10) {
+          constraints.push({ field, op: "array-contains-any", value: items });
+          checks.push((row) => Array.isArray(get(row)) && items.some((v) => (get(row) as unknown[]).includes(v)));
+        } else {
+          addCheck((row) => Array.isArray(get(row)) && items.some((v) => (get(row) as unknown[]).includes(v)));
+        }
+      }
       if (operator.startsWith !== undefined) {
         const prefix = String(operator.startsWith).toLowerCase();
         addCheck((row) => String(get(row) ?? "").toLowerCase().startsWith(prefix));
@@ -426,6 +444,12 @@ const updatedAtModels = new Set([
 function normalizeData(model: string, data: Record<string, unknown>): Record<string, unknown> {
   const result = { ...data };
   if (!result.id) result.id = cuid();
+  /* Postgres stamped `createdAt` with a `@default(now())` on every table, but
+     Firestore has no implicit timestamps — and an `orderBy({ createdAt })`
+     query silently EXCLUDES documents that lack the field. Stamp the same
+     default here on every write or newly created rows never appear in any
+     list sorted by createdAt (coupons, organizations, users, audit logs…). */
+  if (!result.createdAt) result.createdAt = new Date();
   if (updatedAtModels.has(model) && !result.updatedAt) result.updatedAt = new Date();
   return result;
 }
@@ -439,7 +463,11 @@ function cleanData(data: Record<string, unknown>): Record<string, unknown> {
 
 async function create(model: string, data: Record<string, unknown>): Promise<DbRow> {
   const normalized = normalizeData(model, data);
-  await getDb().collection(tableFor(model)).doc(String(normalized.id)).set(cleanData(normalized));
+  /* `.create()` (not `.set()`) so a duplicate document id fails atomically
+     instead of silently overwriting the existing row — matches the old
+     Postgres INSERT / primary-key semantics. Callers that need
+     create-or-replace must use upsert() instead. */
+  await getDb().collection(tableFor(model)).doc(String(normalized.id)).create(cleanData(normalized));
   return normalized;
 }
 
@@ -529,6 +557,61 @@ function modelApi(model: string) {
   };
 }
 
+/* ─── transactions ───────────────────────────────────────────────────────────
+   Firestore transactions only support document-id operations (no queries).
+   `db.$transaction(fn)` runs fn with a tx object whose methods operate on a
+   single document by id, with Firestore's read-then-write atomicity and
+   automatic retry on conflict. Use it for any read-modify-write that must not
+   race (e.g. the single-use coupon claim).
+
+   tx.getDoc(model, id)      -> { exists, data } (data normalized like reads)
+   tx.setDoc(model, id, data)-> create-or-replace (stamps id/createdAt)
+   tx.createDoc(model, id, data) -> fails if the document already exists
+   tx.updateDoc(model, id, data) -> merges fields; fails if missing
+   tx.deleteDoc(model, id)   -> deletes
+
+   IMPORTANT: Firestore requires ALL reads (tx.getDoc) to happen before the
+   FIRST write in the transaction — interleaving them fails with
+   "transactions require all reads to be executed before all writes".
+*/
+type TxApi = {
+  getDoc: (model: string, id: string) => Promise<{ exists: boolean; data: DbRow | null }>;
+  setDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  createDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  updateDoc: (model: string, id: string, data: Record<string, unknown>) => Promise<void>;
+  deleteDoc: (model: string, id: string) => Promise<void>;
+};
+
+function txApi(t: Transaction): TxApi {
+  const ref = (model: string, id: string) => getDb().collection(tableFor(model)).doc(String(id));
+  return {
+    getDoc: async (model, id) => {
+      const snap = await t.get(ref(model, id));
+      return snap.exists
+        ? { exists: true, data: fromFirestore(snap.data() as Record<string, unknown>) as DbRow }
+        : { exists: false, data: null };
+    },
+    setDoc: async (model, id, data) => {
+      const normalized = normalizeData(model, { ...data, id });
+      t.set(ref(model, id), cleanData(normalized));
+    },
+    createDoc: async (model, id, data) => {
+      const normalized = normalizeData(model, { ...data, id });
+      t.create(ref(model, id), cleanData(normalized));
+    },
+    updateDoc: async (model, id, data) => {
+      t.update(ref(model, id), cleanData(data));
+    },
+    deleteDoc: async (model, id) => {
+      t.delete(ref(model, id));
+    },
+  };
+}
+
+function runTransaction<T>(fn: (tx: TxApi) => Promise<T>): Promise<T> {
+  return getDb().runTransaction((t) => fn(txApi(t)));
+}
+
 export const db: any = new Proxy<Record<string, any>>({
   $queryRaw: async () => {
     throw new Error("Raw SQL is not available on Firestore — use the db.* API instead.");
@@ -536,6 +619,7 @@ export const db: any = new Proxy<Record<string, any>>({
 }, {
   get(target, property: string | symbol) {
     if (property === "$queryRaw") return target.$queryRaw;
+    if (property === "$transaction") return runTransaction;
     if (typeof property !== "string") return undefined;
     if (!target[property]) target[property] = modelApi(property);
     return target[property];

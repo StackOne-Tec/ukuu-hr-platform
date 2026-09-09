@@ -10,7 +10,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  CircleCheck,
   Eye,
   EyeOff,
   Globe,
@@ -27,10 +26,10 @@ import {
 import { HOME_HREF } from "@/lib/platform"
 import { SignupSidebar } from "./SignupSidebar"
 import { UkuuLogoMark } from "@/components/landing/Header"
+import { COUNTRIES, COUNTRY_NAMES, DEFAULT_PHONE_CODE } from "@/lib/countries"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-const COUNTRIES = ["Zambia", "Kenya", "Uganda", "Nigeria", "Tanzania", "South Africa", "Malawi", "Other"]
 const INDUSTRIES = ["Technology", "Finance", "Healthcare", "Agriculture", "Manufacturing", "Retail", "Education", "Logistics", "Other"]
 const SIZES = ["1–10 employees", "11–50 employees", "51–200 employees", "201–500 employees", "500+ employees"]
 
@@ -47,6 +46,7 @@ type Form = {
   firstName: string
   lastName: string
   email: string
+  phoneCode: string
   phone: string
   organization: string
   country: string
@@ -61,6 +61,7 @@ const INITIAL: Form = {
   firstName: "James",
   lastName: "Mwale",
   email: "",
+  phoneCode: DEFAULT_PHONE_CODE,
   phone: "",
   organization: "",
   country: "",
@@ -120,6 +121,16 @@ export default function SignupExperience() {
     })
   }, [])
 
+  /* Selecting a country also pre-fills the phone country code. */
+  const onCountryChange = useCallback(
+    (name: string) => {
+      set("country", name)
+      const code = COUNTRIES.find((c) => c.name === name)?.code
+      if (code) set("phoneCode", code)
+    },
+    [set]
+  )
+
   const validate = useCallback((): boolean => {
     const e: Record<string, string> = {}
     if (form.firstName.trim().length < 2) e.firstName = "Enter your first name."
@@ -157,7 +168,7 @@ export default function SignupExperience() {
             firstName: form.firstName.trim(),
             lastName: form.lastName.trim(),
             email: form.email.trim(),
-            phone: form.phone.trim(),
+            phone: `${form.phoneCode} ${form.phone.trim()}`.trim(),
             organization: form.organization.trim(),
             country: form.country,
             industry: form.industry,
@@ -344,19 +355,34 @@ export default function SignupExperience() {
                 <label className="sg-label" htmlFor="sg-phone">
                   Phone Number
                 </label>
-                <div className="sg-inputwrap">
-                  <span className="sg-lead">
-                    <Phone size={17} strokeWidth={1.9} />
-                  </span>
-                  <input
-                    id="sg-phone"
-                    className="sg-input"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="+260 97 123 4567"
-                    value={form.phone}
-                    onChange={(e) => set("phone", e.target.value)}
-                  />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <select
+                    className="sg-phone-code"
+                    value={form.phoneCode}
+                    onChange={(e) => set("phoneCode", e.target.value)}
+                    aria-label="Country calling code"
+                    title="Country calling code"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.name} value={c.code}>
+                        {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="sg-inputwrap" style={{ flex: 1, minWidth: 0 }}>
+                    <span className="sg-lead">
+                      <Phone size={17} strokeWidth={1.9} />
+                    </span>
+                    <input
+                      id="sg-phone"
+                      className="sg-input"
+                      type="tel"
+                      autoComplete="tel"
+                      placeholder="97 123 4567"
+                      value={form.phone}
+                      onChange={(e) => set("phone", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -402,11 +428,11 @@ export default function SignupExperience() {
                       id="sg-country"
                       className={`sg-select${errors.country ? " sg-invalid" : ""}`}
                       value={form.country}
-                      onChange={(e) => set("country", e.target.value)}
+                      onChange={(e) => onCountryChange(e.target.value)}
                       aria-invalid={Boolean(errors.country)}
                     >
                       <option value="">Select country</option>
-                      {COUNTRIES.map((c) => (
+                      {COUNTRY_NAMES.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>
@@ -594,25 +620,6 @@ export default function SignupExperience() {
                   </>
                 )}
               </button>
-
-              <div className="sg-benefits">
-                <span className="sg-benefit">
-                  <CircleCheck size={15} />
-                  Free 14-day trial
-                </span>
-                <span className="sg-benefit">
-                  <CircleCheck size={15} />
-                  No credit card required
-                </span>
-                <span className="sg-benefit">
-                  <CircleCheck size={15} />
-                  Workspace ready in 2 minutes
-                </span>
-                <span className="sg-benefit">
-                  <CircleCheck size={15} />
-                  Cancel anytime
-                </span>
-              </div>
 
               <p className="sg-foot">
                 Already have an account? <a href="/login">Sign in</a>

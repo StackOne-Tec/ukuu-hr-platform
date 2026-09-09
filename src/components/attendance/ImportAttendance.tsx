@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminShell from "@/components/admin/AdminShell";
 import { CloudDownload, Cctv, Upload, Wifi, WifiOff, CheckCircle2, Loader2, X, RefreshCw } from "lucide-react";
 
 type Device = { id: string; name: string; vendor: string; model: string; ipAddress: string };
 type Event = { id: string; employeeCode: string; eventType: string; eventTime: string | null };
+type PendingEvent = {
+  id: string;
+  employeeCode: string;
+  employeeName: string;
+  eventType: string;
+  eventTime: string | null;
+  deviceName: string;
+  matched: boolean;
+};
 
 type Phase =
   | { step: "idle" }
@@ -40,7 +49,15 @@ async function readJson(res: Response): Promise<any> {
   );
 }
 
-export default function ImportAttendance({ devices, recentEvents }: { devices: Device[]; recentEvents: Event[] }) {
+export default function ImportAttendance({
+  devices,
+  recentEvents,
+  pendingEvents,
+}: {
+  devices: Device[];
+  recentEvents: Event[];
+  pendingEvents: PendingEvent[];
+}) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [source, setSource] = useState<"device" | "csv">("device");
@@ -53,11 +70,55 @@ export default function ImportAttendance({ devices, recentEvents }: { devices: D
   const [phase, setPhase] = useState<Phase>({ step: "idle" });
   const [progress, setProgress] = useState(0);
 
-  // pop-up modal opens automatically, exactly as requested
-  useEffect(() => {
-    const t = window.setTimeout(() => setModalOpen(true), 350);
-    return () => window.clearTimeout(t);
-  }, []);
+  /* ── Bridge records review: select which synced records to import ── */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+
+  const toggleAll = (checked: boolean) => {
+    setSelected(checked ? new Set(pendingEvents.map((p) => p.id)) : new Set());
+    setImportMsg(null);
+  };
+
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    setImportMsg(null);
+  };
+
+  const importSelected = async () => {
+    if (selected.size === 0 || importing) return;
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const res = await fetch("/api/attendance/import/bridge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventIds: [...selected] }),
+      });
+      const json = await readJson(res);
+      if (!res.ok || json.ok === false) throw new Error((json.error as string) ?? "Import failed");
+      const rows = Number(json.imported ?? 0);
+      const unmatched = Number(json.unmatchedPunches ?? 0);
+      setImportMsg({
+        kind: "success",
+        text:
+          unmatched > 0
+            ? `Imported ${rows} attendance record(s) — ${unmatched} could not be matched to an employee code.`
+            : `Imported ${rows} attendance record(s) from the Bridge.`,
+      });
+      setSelected(new Set());
+      router.refresh();
+    } catch (e) {
+      setImportMsg({ kind: "error", text: e instanceof Error ? e.message : "Import failed. Please try again." });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const selectedDevice = devices.find((d) => d.id === deviceId);
 
@@ -215,6 +276,104 @@ export default function ImportAttendance({ devices, recentEvents }: { devices: D
             </p>
           </div>
         </button>
+      </div>
+
+      {/* records synced from the Bridge — select which to import into the core system */}
+      <div className="bk-admin-card" style={{ marginTop: 24 }}>
+        <div className="bk-admin-card-header">
+          <div>
+            <h3>Records synced from the Bridge application</h3>
+            <p>Select which records to import into the core attendance system. Unmatched records are flagged — check the employee codes before importing them.</p>
+          </div>
+          <span className="bk-admin-pill active" style={{ textTransform: "none" }}>{pendingEvents.length} pending</span>
+        </div>
+
+        {importMsg && (
+          <div style={{
+            padding: "12px 24px", fontSize: 13.5,
+            background: importMsg.kind === "success" ? "rgba(20,163,127,.1)" : "rgba(220,38,38,.1)",
+            color: importMsg.kind === "success" ? "#14a37f" : "#DC2626",
+            borderTop: "1px solid var(--bk-line)",
+          }}>
+            {importMsg.text}
+          </div>
+        )}
+
+        {pendingEvents.length === 0 ? (
+          <div className="bk-admin-card-content">
+            <div className="bk-muted-text" style={{ padding: "20px 0", textAlign: "center" }}>
+              No records waiting to be imported — sync your device from the Bridge desktop app and they&apos;ll appear here for review.
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 24px", borderBottom: "1px solid var(--bk-line)", flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                <input type="checkbox" data-testid="bridge-select-all" checked={selected.size === pendingEvents.length} onChange={(e) => toggleAll(e.target.checked)} />
+                Select all
+              </label>
+              <span className="bk-muted-text" style={{ fontSize: 12.5 }}>{selected.size} of {pendingEvents.length} selected</span>
+              <button
+                type="button"
+                data-testid="bridge-import-selected"
+                className="bk-btn bk-btn-primary"
+                style={{ marginLeft: "auto" }}
+                disabled={selected.size === 0 || importing}
+                onClick={importSelected}
+              >
+                {importing ? <Loader2 size={16} className="spin" /> : <CloudDownload size={16} />}
+                {importing ? "Importing…" : `Import Selected (${selected.size})`}
+              </button>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="bk-admin-table" style={{ minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 44 }}></th>
+                    <th>Employee</th>
+                    <th>Event</th>
+                    <th>Date &amp; time</th>
+                    <th>Device</th>
+                    <th>Match</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingEvents.map((p) => {
+                    const checked = selected.has(p.id);
+                    return (
+                      <tr key={p.id} data-testid="bridge-record">
+                        <td>
+                          <input
+                            type="checkbox"
+                            data-testid={`bridge-record-check-${p.employeeCode}`}
+                            aria-label={`Select record ${p.employeeCode} ${p.eventType}`}
+                            checked={checked}
+                            onChange={(e) => toggleOne(p.id, e.target.checked)}
+                          />
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700 }}>{p.employeeCode}</div>
+                          {p.employeeName && <div className="bk-muted-text" style={{ fontSize: 12 }}>{p.employeeName}</div>}
+                        </td>
+                        <td>{p.eventType}</td>
+                        <td className="bk-mono" style={{ fontSize: 12.5 }}>{p.eventTime ? new Date(p.eventTime).toLocaleString() : "—"}</td>
+                        <td>{p.deviceName}</td>
+                        <td>
+                          {p.matched ? (
+                            <span className="bk-admin-pill active" style={{ textTransform: "none" }}>Matched</span>
+                          ) : (
+                            <span className="bk-admin-pill" style={{ textTransform: "none", color: "#B45309", borderColor: "rgba(180,83,9,.4)", background: "rgba(180,83,9,.08)" }}>Unmatched</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ───────────── pop-up modal ───────────── */}

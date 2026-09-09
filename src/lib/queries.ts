@@ -39,7 +39,11 @@ export async function getDashboardData() {
       db.overtimeRecord.findMany({ where: { organizationId: orgId, status: "Pending" } }),
       db.attendanceDevice.findMany({ where: { organizationId: orgId, isActive: true } }),
       db.attendance.findMany({ where: { organizationId: orgId, date: { gte: monthStart } } }),
-      db.overtimeRecord.findMany({ where: { organizationId: orgId, status: { not: "Rejected" }, date: { gte: monthStart } } }),
+      /* Firestore forbids combining `!=` (status) with a range on a different
+         field (date) in one query. Pushing only the equality + range and
+         post-filtering the status (via the `NOT` wrapper) keeps the same
+         semantics without the invalid inequality combination. */
+      db.overtimeRecord.findMany({ where: { organizationId: orgId, date: { gte: monthStart }, NOT: { status: "Rejected" } } }),
     ]);
 
     const present = attendance.filter((a) => a.status === "Present" || a.status === "Late").length;
@@ -250,6 +254,48 @@ export async function getClockEvents() {
       orderBy: { eventTime: "desc" },
       take: 30,
     })).map((c) => ({ id: c.id, employeeCode: c.employeeCode, eventType: c.eventType, eventTime: iso(c.eventTime) }));
+  }, []);
+}
+
+/* Records the Bridge desktop app synced up but the admin has not yet imported
+   into the core attendance system (pending: true). Feeds the selection GUI on
+   the Import Attendance page. `matched` flags records whose employee code
+   resolves to a real employee — unmatched ones are highlighted, not hidden. */
+export async function getPendingBridgeEvents() {
+  return safe(async () => {
+    const org = await currentOrg();
+    const orgId = org?.id ?? "none";
+    const [events, employees, devices] = await Promise.all([
+      db.unifiedClockEvent.findMany({
+        where: { organizationId: orgId, pending: true },
+        orderBy: { eventTime: "desc" },
+        take: 200,
+      }),
+      db.employee.findMany({
+        where: { organizationId: orgId },
+        select: { id: true, employeeCode: true, firstName: true, lastName: true },
+      }),
+      db.attendanceDevice.findMany({
+        where: { organizationId: orgId },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const empByCode = new Map<string, { id: string; employeeCode: string; firstName: string; lastName: string }>(
+      employees.map((e) => [e.employeeCode, e])
+    );
+    const deviceById = new Map(devices.map((d) => [d.id, d.name]));
+    return events.map((c) => {
+      const emp = empByCode.get(c.employeeCode);
+      return {
+        id: c.id,
+        employeeCode: c.employeeCode,
+        employeeName: emp ? `${emp.firstName} ${emp.lastName}`.trim() : "",
+        eventType: c.eventType,
+        eventTime: iso(c.eventTime),
+        deviceName: c.deviceId ? (deviceById.get(c.deviceId) ?? "Bridge") : "Bridge",
+        matched: Boolean(emp),
+      };
+    });
   }, []);
 }
 

@@ -1,14 +1,20 @@
-import { Pool } from "pg";
+import { readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { initializeApp, cert, getApps, getApp, type App } from "firebase-admin/app";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 
 /**
- * Per-run fixture namespace + database access for the E2E suite.
+ * Per-run fixture namespace + Firestore access for the E2E suite.
  *
- * The app talks to a live shared PostgreSQL (Render), so this suite is
- * strictly non-destructive:
- *  - every row this suite creates is namespaced (emails, org slugs, coupon
- *    codes, employee/department names) under a unique per-run prefix,
- *  - cleanup deletes ONLY rows carrying this run's marker, in
- *    foreign-key-safe order,
+ * The app is Firestore-backed (Firebase Auth + Cloud Firestore on project
+ * `chat-4f81e`), so fixtures are provisioned with the Admin SDK exactly like
+ * the app's own data layer writes them — no raw SQL, no second database.
+ * The suite is strictly non-destructive:
+ *  - every document this suite creates is namespaced (emails, org slugs,
+ *    coupon codes, employee codes) under a unique per-run prefix,
+ *  - cleanup deletes ONLY documents carrying this run's marker, scoped per
+ *    organization, and the Firebase Auth users created for it,
  *  - demo/shared data is never touched.
  */
 
@@ -16,10 +22,10 @@ export const RUN_PREFIX = `e2e-${Date.now().toString(36)}-`;
 
 export type RunHandle = {
   prefix: string;
-  pool: Pool;
-  /** Raw SQL helper (parameterized). */
+  firestore: Firestore;
+  /** Raw SQL is gone with the Postgres migration — callers must use the fixture factories. */
   q: <T = any>(text: string, values?: unknown[]) => Promise<T[]>;
-  /* ── fixture factories (all namespaced + tracked) ── */
+  /* ── fixture factories (all namespaced + Firestore-native) ── */
   createOrg: (tag: string) => Promise<{ id: string; slug: string; name: string }>;
   createUser: (tag: string, orgId: string) => Promise<{ id: string; email: string; password: string }>;
   createSession: (userId: string, orgId: string) => Promise<string>;
@@ -33,174 +39,245 @@ export type RunHandle = {
   ) => Promise<{ id: string; code: string; fullName: string; firstName: string; lastName: string }>;
 };
 
+/* Collection names mirror src/lib/db.ts `tables` — the app reads these exact
+   collections, so fixtures must land in the same casing. */
+const COLLECTIONS = {
+  organization: "Organization",
+  userAccount: "UserAccount",
+  webSession: "WebSession",
+  bridgeSession: "BridgeSession",
+  licenseCode: "LicenseCode",
+  apiKey: "ApiKey",
+  coupon: "Coupon",
+  department: "Department",
+  employee: "Employee",
+  attendance: "Attendance",
+  attendanceDevice: "AttendanceDevice",
+  unifiedClockEvent: "UnifiedClockEvent",
+  syncRun: "SyncRun",
+  notification: "Notification",
+  auditLog: "AuditLog",
+  shift: "Shift",
+  overtimeRecord: "OvertimeRecord",
+  leaveRequest: "LeaveRequest",
+  employeeShiftAssignment: "EmployeeShiftAssignment",
+  departmentShiftAssignment: "DepartmentShiftAssignment",
+  expenseRequest: "ExpenseRequest",
+  announcement: "Announcement",
+  payrollRun: "PayrollRun",
+  payrollItem: "PayrollItem",
+  hrConversation: "HrConversation",
+  hrMessage: "HrMessage",
+  employeeDocument: "EmployeeDocument",
+} as const;
+
+/** Every collection that carries an `organizationId` field — used for cleanup
+    (UserAccount is handled with its Firebase Auth users). */
+const ORG_SCOPED: string[] = Object.values(COLLECTIONS).filter(
+  (c) => c !== "Coupon" && c !== "Organization" && c !== "UserAccount"
+);
+
 function cuid(): string {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function normalizeDatabaseUrl(raw: string | undefined): string | undefined {
-  if (!raw) return raw;
-  // Same intent as src/lib/db-url.ts: force the sslmode pg expects.
-  if (/[?&]sslmode=/.test(raw)) return raw;
-  return raw.includes("?") ? `${raw}&sslmode=require` : `${raw}?sslmode=require`;
+/** Minimal .env/.env.local loader — Playwright doesn't load dotfiles for us. */
+function loadEnvFile(path: string) {
+  try {
+    for (const line of readFileSync(path, "utf8").split("\n")) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+      if (!m) continue;
+      if (process.env[m[1]] !== undefined) continue;
+      let value = m[2];
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      process.env[m[1]] = value;
+    }
+  } catch {
+    /* file missing — rely on exported env */
+  }
 }
 
+function resolveServiceAccount(): Record<string, string> {
+  loadEnvFile(".env.local");
+  loadEnvFile(".env");
+  const inline = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (inline) return JSON.parse(inline) as Record<string, string>;
+  const path = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (path) return JSON.parse(readFileSync(path, "utf8")) as Record<string, string>;
+  throw new Error(
+    "No Firebase credentials configured — set FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS in .env.local"
+  );
+}
+
+function app(): App {
+  if (getApps().length > 0) return getApp();
+  const sa = resolveServiceAccount();
+  return initializeApp({ credential: cert(sa as Parameters<typeof cert>[0]) });
+}
+
+function db(): Firestore {
+  return getFirestore(app());
+}
+
+const hashToken = (token: string) => createHash("sha256").update(token, "utf8").digest("hex");
+
 export function makeContext(): RunHandle {
-  const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
-  if (!connectionString) throw new Error("DATABASE_URL is not set — cannot run E2E suite");
-
-  const pool = new Pool({
-    connectionString,
-    max: 3,
-    ssl: { rejectUnauthorized: false },
-  });
-
-  const q = async <T = any>(text: string, values: unknown[] = []): Promise<T[]> => {
-    const res = await pool.query(text, values);
-    return res.rows as T[];
-  };
-
   const prefix = RUN_PREFIX;
-  const createdAt = new Date().toISOString();
+  const createdAt = new Date();
 
-  /**
-   * Teardown: delete exactly this run's rows, children before parents.
-   * Every statement is scoped by the run marker so shared/demo data is safe.
-   */
-  const cleanup = async () => {
-    const steps: string[] = [
-      // session + token tables reference users/orgs
-      `DELETE FROM "WebSession" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "BridgeSession" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // license + api keys are org-scoped
-      `DELETE FROM "LicenseCode" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "ApiKey" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // notifications + audit entries created by the flows
-      `DELETE FROM "Notification" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "AuditLog" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "AuditLog" WHERE "entityType" = 'Coupon' AND "entityId" IN (SELECT id FROM "Coupon" WHERE code ILIKE $2)`,
-      // HR messaging + documents created for e2e employees
-      `DELETE FROM "HrMessage" WHERE "conversationId" IN (SELECT c.id FROM "HrConversation" c JOIN "Organization" o ON o.id = c."organizationId" WHERE o.slug LIKE $1)`,
-      `DELETE FROM "HrConversation" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "EmployeeDocument" WHERE "employeeId" IN (SELECT e.id FROM "Employee" e JOIN "Organization" o ON o.id = e."organizationId" WHERE o.slug LIKE $1)`,
-      // workforce children
-      `DELETE FROM "Attendance" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "OvertimeRecord" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "LeaveRequest" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "EmployeeShiftAssignment" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "DepartmentShiftAssignment" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "AttendanceDevice" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "UnifiedClockEvent" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "ExpenseRequest" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "Announcement" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // payroll children reference employees via codes, delete before employees
-      `DELETE FROM "PayrollItem" WHERE "payrollRunId" IN (SELECT p.id FROM "PayrollRun" p JOIN "Organization" o ON o.id = p."organizationId" WHERE o.slug LIKE $1)`,
-      `DELETE FROM "PayrollRun" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // employees before departments
-      `DELETE FROM "Employee" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "Department" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // license/coupons: license rows already gone; clear redemption state
-      `UPDATE "Coupon" SET "redeemedByOrgId" = NULL, "redeemedByOrgName" = NULL WHERE code ILIKE $2`,
-      `DELETE FROM "Coupon" WHERE code ILIKE $2`,
-      // shift definitions are org-scoped too
-      `DELETE FROM "Shift" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      // finally the tenant itself + its accounts
-      `DELETE FROM "UserAccount" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`,
-      `DELETE FROM "Organization" WHERE slug LIKE $1`,
-    ];
-    for (const sql of steps) {
-      await q(sql, [`${prefix}%`, `${prefix}%`]).catch(() => {
-        /* table may not exist on a fresh schema — skip */
-      });
-    }
+  const q = async <T = any>(): Promise<T[]> => {
+    throw new Error(
+      "ctx.q (raw SQL) is no longer available — the app runs on Firestore. Use ctx.createOrg/createUser/… instead."
+    );
   };
-
-  // Stale runs are cleared by global-setup (runCleanup); this context only
-  // creates fixtures.
 
   const createOrg = async (tag: string) => {
     const slug = `${prefix}${tag}`;
     const id = cuid();
-    await q(
-      `INSERT INTO "Organization" (id, name, slug, email, country, currency, plan, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
-      [id, `E2E Org ${tag}`, slug, `${prefix}${tag}@e2e.test`, "Zambia", "ZMW", "trial-14d", createdAt]
-    );
+    await db()
+      .collection(COLLECTIONS.organization)
+      .doc(id)
+      .set({
+        id,
+        name: `E2E Org ${tag}`,
+        slug,
+        email: `${prefix}${tag}@e2e.test`,
+        country: "Zambia",
+        currency: "ZMW",
+        plan: "trial-14d",
+        trialEndsAt: null,
+        createdAt,
+      });
     return { id, slug, name: `E2E Org ${tag}` };
   };
 
   const createUser = async (tag: string, orgId: string) => {
     const email = `${prefix}${tag}@e2e.test`;
     const password = `${tag}-Passw0rd!`;
-    const id = cuid();
-    await q(
-      `INSERT INTO "UserAccount" (id, "organizationId", name, email, role, "passwordHash", "isActive", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, true, $7, $7)`,
-      [id, orgId, `E2E User ${tag}`, email, "Admin", password, createdAt]
-    );
+    // Firebase Auth owns the credentials (the app verifies via signInWithPassword).
+    const record = await getAuth(app()).createUser({ email, password, emailVerified: true });
+    const id = record.uid;
+    await db()
+      .collection(COLLECTIONS.userAccount)
+      .doc(id)
+      .set({
+        id,
+        organizationId: orgId,
+        name: `E2E User ${tag}`,
+        email,
+        role: "Admin",
+        passwordHash: null,
+        isActive: true,
+        emailVerified: true,
+        createdAt,
+      });
     return { id, email, password };
   };
 
   const createSession = async (userId: string, orgId: string) => {
-    // Token format must match src/lib/session.ts (hashed with sha256 before storage).
-    const { createHash } = await import("node:crypto");
-    const token = `ukuu_ws_${createHash("sha256").update(String(Math.random())).digest("hex").slice(0, 24)}`;
-    const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
-    await q(
-      `INSERT INTO "WebSession" (id, "tokenHash", "userId", "organizationId", "expiresAt", "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [cuid(), tokenHash, userId, orgId, new Date(Date.now() + 3600_000), createdAt]
-    );
+    // Token format must match src/lib/session.ts (only the sha256 hash is stored).
+    const token = `ukuu_ws_${randomBytes(24).toString("hex")}`;
+    await db()
+      .collection(COLLECTIONS.webSession)
+      .doc(cuid())
+      .set({
+        tokenHash: hashToken(token),
+        userId,
+        organizationId: orgId,
+        expiresAt: new Date(Date.now() + 3600_000),
+        createdAt,
+      });
     return token;
   };
 
   const createLicense = async (orgId: string, plan = "Professional") => {
-    await q(
-      `INSERT INTO "LicenseCode" (id, "organizationId", code, plan, status, "issuedAt", "activatedAt")
-       VALUES ($1, $2, $3, $4, 'Active', $5, $5)`,
-      [cuid(), orgId, `${prefix}LIC-${tag7()}`, plan, createdAt]
-    );
+    await db()
+      .collection(COLLECTIONS.licenseCode)
+      .doc(cuid())
+      .set({
+        organizationId: orgId,
+        code: `${prefix}LIC-${tag7()}`,
+        plan,
+        status: "Active",
+        issuedAt: createdAt,
+        activatedAt: createdAt,
+      });
   };
 
   const createCoupon = async (tag: string, opts: { plan?: string; status?: string; expiresAt?: Date | null } = {}) => {
     // The redeem flow (AccessGate input + /api/license/redeem) uppercases the
     // code before the exact-match lookup, so store it fully uppercase.
     const code = `${prefix}${tag.toUpperCase().replace(/[^A-Z0-9-]/g, "")}`.toUpperCase().slice(0, 40);
-    await q(
-      `INSERT INTO "Coupon" (id, code, "discountPercent", plan, status, "expiresAt", "createdAt")
-       VALUES ($1, $2, 100, $3, $4, $5, $6)`,
-      [cuid(), code, opts.plan ?? "Professional", opts.status ?? "Active", opts.expiresAt ?? null, createdAt]
-    );
+    await db()
+      .collection(COLLECTIONS.coupon)
+      .doc(cuid())
+      .set({
+        code,
+        discountPercent: 100,
+        plan: opts.plan ?? "Professional",
+        status: opts.status ?? "Active",
+        expiresAt: opts.expiresAt ?? null,
+        createdAt,
+      });
     return code;
   };
 
   const createDepartment = async (tag: string, orgId: string) => {
     const id = cuid();
-    await q(
-      `INSERT INTO "Department" (id, "organizationId", name, color, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $5)`,
-      [id, orgId, `E2E Dept ${tag}`, "#7B2FBE", createdAt]
-    );
+    await db()
+      .collection(COLLECTIONS.department)
+      .doc(id)
+      .set({ id, organizationId: orgId, name: `E2E Dept ${tag}`, color: "#7B2FBE", createdAt });
     return id;
   };
 
   const createEmployee = async (tag: string, orgId: string, deptId?: string | null) => {
     const id = cuid();
-    // employeeCode is globally unique in the schema — suffix randomness so
-    // repeated runs / parallel tags can never collide.
+    // employeeCode must be globally unique — suffix randomness so repeated
+    // runs / parallel tags can never collide.
     const code = `E2E-${tag.toUpperCase().slice(0, 12)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const firstName = `E2E${cap(tag).slice(0, 14)}`;
     const lastName = "Worker";
-    await q(
-      `INSERT INTO "Employee" (id, "organizationId", "employeeCode", "firstName", "lastName", email, position,
-        "departmentId", "employmentType", status, "hireDate", salary, "basicSalary", rating, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Full-time', 'Active', $9, 15000, 12000, 4, $10, $10)`,
-      [id, orgId, code, firstName, lastName, `${prefix}${tag}@e2e.test`, "E2E Tester", deptId ?? null, new Date(), createdAt]
-    );
+    await db()
+      .collection(COLLECTIONS.employee)
+      .doc(id)
+      .set({
+        id,
+        organizationId: orgId,
+        employeeCode: code,
+        firstName,
+        lastName,
+        email: `${prefix}${tag}@e2e.test`,
+        position: "E2E Tester",
+        departmentId: deptId ?? null,
+        employmentType: "Full-time",
+        status: "Active",
+        hireDate: new Date(),
+        salary: 15000,
+        basicSalary: 12000,
+        rating: 4,
+        createdAt,
+      });
     return { id, code, fullName: `${firstName} ${lastName}`, firstName, lastName };
   };
 
-  return { prefix, pool, q, createOrg, createUser, createSession, createLicense, createCoupon, createDepartment, createEmployee };
+  return {
+    prefix,
+    firestore: db(),
+    q,
+    createOrg,
+    createUser,
+    createSession,
+    createLicense,
+    createCoupon,
+    createDepartment,
+    createEmployee,
+  };
 }
+
+/* ───────────────────────── cleanup ───────────────────────── */
 
 function tag7() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -210,46 +287,67 @@ function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+async function deleteWhereOrg(fs: Firestore, collection: string, orgId: string): Promise<void> {
+  const snap = await fs.collection(collection).where("organizationId", "==", orgId).get();
+  await Promise.all(snap.docs.map((d) => d.ref.delete().catch(() => {})));
+}
+
+/** Remove every document + Firebase Auth user this run (or a crashed run with
+    the same marker shape) created. Safe to call from any process. */
 export async function runCleanup(): Promise<void> {
-  const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
-  if (!connectionString) return;
-  const pool = new Pool({ connectionString, max: 1, ssl: { rejectUnauthorized: false } });
-  const like = `${RUN_PREFIX}%`;
-  const steps: Array<[string, unknown[]]> = [
-    [`DELETE FROM "WebSession" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "BridgeSession" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "LicenseCode" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "ApiKey" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "Notification" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "AuditLog" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "AuditLog" WHERE "entityType" = 'Coupon' AND "entityId" IN (SELECT id FROM "Coupon" WHERE code ILIKE $1)`, [like]],
-    [`DELETE FROM "HrMessage" WHERE "conversationId" IN (SELECT c.id FROM "HrConversation" c JOIN "Organization" o ON o.id = c."organizationId" WHERE o.slug LIKE $1)`, [like]],
-    [`DELETE FROM "HrConversation" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "EmployeeDocument" WHERE "employeeId" IN (SELECT e.id FROM "Employee" e JOIN "Organization" o ON o.id = e."organizationId" WHERE o.slug LIKE $1)`, [like]],
-    [`DELETE FROM "Attendance" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "OvertimeRecord" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "LeaveRequest" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "EmployeeShiftAssignment" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "DepartmentShiftAssignment" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "AttendanceDevice" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "UnifiedClockEvent" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "ExpenseRequest" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "Announcement" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "PayrollItem" WHERE "payrollRunId" IN (SELECT p.id FROM "PayrollRun" p JOIN "Organization" o ON o.id = p."organizationId" WHERE o.slug LIKE $1)`, [like]],
-    [`DELETE FROM "PayrollRun" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "Employee" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "Department" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`UPDATE "Coupon" SET "redeemedByOrgId" = NULL, "redeemedByOrgName" = NULL WHERE code ILIKE $1`, [like]],
-    [`DELETE FROM "Coupon" WHERE code ILIKE $1`, [like]],
-    [`DELETE FROM "Shift" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "UserAccount" WHERE "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE $1)`, [like]],
-    [`DELETE FROM "Organization" WHERE slug LIKE $1`, [like]],
-  ];
+  let appRef: App | null = null;
   try {
-    for (const [sql, params] of steps) {
-      await pool.query(sql, params).catch(() => {});
+    loadEnvFile(".env.local");
+    loadEnvFile(".env");
+    const inline = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const path = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const raw = inline ?? (path ? readFileSync(path, "utf8") : null);
+    if (!raw) return;
+    appRef = initializeApp({ credential: cert(JSON.parse(raw) as Parameters<typeof cert>[0]) });
+  } catch {
+    return; // no credentials — nothing to clean
+  }
+
+  try {
+    const fs = getFirestore(appRef);
+    // The suite runs serially (workers: 1) against a dedicated `e2e-` namespace,
+    // and RUN_PREFIX is computed per process — so global-setup/teardown can't
+    // know the test workers' exact prefix. Clean everything this suite could
+    // have created: orgs whose slug starts with the namespace marker.
+    const like = "e2e-";
+    // Organizations created by this suite carry the run prefix in their slug.
+    const orgSnap = await fs
+      .collection(COLLECTIONS.organization)
+      .where("slug", ">=", like)
+      .where("slug", "<", `${like}\uf8ff`)
+      .get();
+    const orgIds = orgSnap.docs.map((d) => d.id);
+
+    for (const orgId of orgIds) {
+      // Firebase Auth users first — before their UserAccount docs are removed.
+      const users = await fs.collection(COLLECTIONS.userAccount).where("organizationId", "==", orgId).get();
+      for (const doc of users.docs) {
+        await getAuth(appRef).deleteUser(doc.id).catch(() => {});
+      }
+      // Every org-scoped child document (Firestore has no FKs — order is irrelevant).
+      for (const collection of ORG_SCOPED) {
+        await deleteWhereOrg(fs, collection, orgId);
+      }
+      await fs.collection(COLLECTIONS.userAccount).where("organizationId", "==", orgId).get()
+        .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete().catch(() => {}))));
+      await fs.collection(COLLECTIONS.organization).doc(orgId).delete().catch(() => {});
     }
+
+    // Coupons have no org id — they are namespaced by code prefix (stored
+    // uppercase because the redeem flow uppercases input before lookup).
+    const couponLike = "E2E-";
+    const couponSnap = await fs
+      .collection(COLLECTIONS.coupon)
+      .where("code", ">=", couponLike)
+      .where("code", "<", `${couponLike}\uf8ff`)
+      .get();
+    await Promise.all(couponSnap.docs.map((d) => d.ref.delete().catch(() => {})));
   } finally {
-    await pool.end().catch(() => {});
+    await getFirestore(appRef).terminate().catch(() => {});
   }
 }

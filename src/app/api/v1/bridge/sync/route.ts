@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiErrorMessage } from "@/lib/apikey";
-import { createNotification } from "@/lib/notify";
-import { ingestClockEvents, type ClockEventInput } from "@/lib/clock";
+import { stageClockEvents, type ClockEventInput } from "@/lib/clock";
 import { bridgeGuard } from "../guard";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +29,9 @@ function normalizeKind(v: unknown): "check-in" | "check-out" | "verify" | "syste
  * Upload attendance data the desktop app retrieved from a device — either by a
  * manual “upload now” click (mode: "manual", the default) or automatically on
  * the configured sync interval (mode: "auto"). Events are deduped against the
- * clock-event log, check-in/check-out punches are rolled up into daily
- * attendance rows, and the device's lastSyncAt is refreshed.
+ * clock-event log and STAGED as pending records; they do NOT enter the core
+ * attendance system until an admin selects them on the Import Attendance page
+ * (POST /api/attendance/import/bridge). The device's lastSyncAt is refreshed.
  *
  * Body:
  *   { mode?: "manual" | "auto",
@@ -104,14 +104,13 @@ export async function POST(req: Request) {
       events.push({ employeeNo, time, kind, raw: str(r.raw) || null });
     }
 
-    const ingested = await ingestClockEvents({
+    const staged = await stageClockEvents({
       organizationId: ctx.organizationId,
       events,
-      sourceLabel: device.name || device.ipAddress || device.id,
       deviceRef: { id: device.id },
     });
 
-    if (!ingested.dbUnreachable) {
+    if (!staged.dbUnreachable) {
       // Structured sync-run history (feeds GET /api/v1/bridge/syncs) + audit.
       await db.syncRun
         .create({
@@ -121,10 +120,10 @@ export async function POST(req: Request) {
             deviceName: device.name,
             mode,
             received: events.length,
-            persisted: ingested.persisted,
-            attendanceRows: ingested.attendanceRows,
-            matched: ingested.matched,
-            unmatched: ingested.unmatchedPunches,
+            persisted: staged.persisted,
+            attendanceRows: 0,
+            matched: 0,
+            unmatched: 0,
           },
         })
         .catch(() => {});
@@ -136,19 +135,10 @@ export async function POST(req: Request) {
             action: mode === "auto" ? "Bridge.Sync.Auto" : "Bridge.Sync.Manual",
             entityType: "AttendanceDevice",
             entityId: device.id,
-            details: `${events.length} event(s) uploaded from ${device.name} (${ingested.persisted} new rows, ${ingested.attendanceRows} attendance rows)`,
+            details: `${events.length} event(s) uploaded from ${device.name} (${staged.persisted} new rows staged — awaiting admin import)`,
           },
         })
         .catch(() => {});
-    }
-
-    if (!ingested.dbUnreachable && ingested.unmatchedPunches > 0) {
-      // Synchronisation error worth flagging to administrators (FRS: notify on sync errors).
-      await createNotification({
-        organizationId: ctx.organizationId,
-        title: "Device sync warning",
-        message: `${device.name}: ${ingested.unmatchedPunches} punch(es) could not be matched to an employee record.`,
-      });
     }
 
     return NextResponse.json({
@@ -157,12 +147,13 @@ export async function POST(req: Request) {
       device: { id: device.id, name: device.name },
       received: events.length,
       skippedInvalid: skipped,
-      persisted: ingested.persisted,
-      attendanceRows: ingested.attendanceRows,
-      matched: ingested.matched,
-      unmatchedPunches: ingested.unmatchedPunches,
+      persisted: staged.persisted,
+      staged: staged.persisted, // records now waiting in the Import Attendance review list
+      attendanceRows: 0, // nothing enters Attendance until the admin selects records to import
+      matched: 0,
+      unmatchedPunches: 0, // employee matching happens at import time
       syncedAt: new Date().toISOString(),
-      dbUnreachable: ingested.dbUnreachable,
+      dbUnreachable: staged.dbUnreachable,
     });
   } catch (e) {
     return NextResponse.json(
