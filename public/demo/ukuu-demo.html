@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ukuu HR — product demo</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     UKUU HR — HyperFrames demo composition (1920×1080, ~30s, seekable)
+     Authoring contract: root data-composition-id/width/height, timed scenes
+     as clips, GSAP timeline { paused: true } registered on window.__timelines.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg-0: #0e0620;
+    --bg-1: #160a30;
+    --bg-2: #2d1b69;
+    --purple: #7b2fbe;
+    --purple-deep: #5b1f96;
+    --lavender: #a78bfa;
+    --gold: #d89c11;
+    --green: #14a37f;
+    --pink: #e85d75;
+    --text: #ffffff;
+    --muted: rgba(243, 240, 255, 0.78);
+    --faint: rgba(243, 240, 255, 0.56);
+    --card: rgba(255, 255, 255, 0.055);
+    --card-line: rgba(255, 255, 255, 0.1);
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-0); }
+
+  #stage {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    background:
+      radial-gradient(ellipse 1400px 900px at 12% -8%, rgba(123, 47, 190, 0.32), transparent 60%),
+      radial-gradient(ellipse 1200px 800px at 96% 8%, rgba(167, 139, 250, 0.16), transparent 58%),
+      linear-gradient(160deg, #0e0620 0%, #160a30 52%, #1a0d42 100%);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ── persistent backdrop: grid + aurora + vignette (always on) ── */
+  .bg { position: absolute; inset: 0; pointer-events: none; }
+  .bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(167, 139, 250, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(167, 139, 250, 0.055) 1px, transparent 1px);
+    background-size: 88px 88px;
+    mask-image: radial-gradient(ellipse 92% 82% at 50% 42%, black 22%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 92% 82% at 50% 42%, black 22%, transparent 78%);
+  }
+  .aurora {
+    position: absolute; width: 900px; height: 640px; border-radius: 50%;
+    filter: blur(110px); opacity: 0.5; will-change: transform;
+  }
+  .aurora--a { left: -220px; top: -180px; background: radial-gradient(circle, rgba(123, 47, 190, 0.65), transparent 65%); }
+  .aurora--b { right: -260px; bottom: -220px; background: radial-gradient(circle, rgba(90, 44, 168, 0.5), transparent 65%); }
+  .bg-vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(14, 6, 32, 0.6) 100%);
+  }
+
+  /* ── scenes ── */
+  .scene {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    will-change: opacity, transform;
+  }
+
+  .grad-text {
+    background: linear-gradient(92deg, #a78bfa 0%, #c084fc 55%, #e9c469 120%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ═══ Scene A — logo sting ═══ */
+  .sting { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .sting-mark { width: 148px; height: 148px; margin-bottom: 30px; }
+  .sting-kicker {
+    font-size: 21px; font-weight: 700; letter-spacing: 0.42em; text-transform: uppercase;
+    color: var(--lavender);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .sting-kicker::before, .sting-kicker::after {
+    content: ""; width: 42px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.55));
+  }
+  .sting-kicker::after { background: linear-gradient(90deg, rgba(167, 139, 250, 0.55), transparent); }
+  .sting-word {
+    margin-top: 26px; font-size: 118px; font-weight: 800; letter-spacing: 0.16em;
+    line-height: 1; color: #fff; text-indent: 0.16em;
+    display: flex;
+  }
+  .sting-word .ltr { display: inline-block; will-change: transform, opacity; }
+  .sting-tagline {
+    margin-top: 30px; font-size: 34px; font-weight: 600; color: var(--muted);
+    letter-spacing: -0.01em;
+  }
+
+  /* ═══ Scene B — dashboard ═══ */
+  .dash {
+    position: absolute; inset: 96px 120px;
+    border-radius: 28px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(30, 16, 66, 0.92), rgba(20, 10, 44, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 60px 140px rgba(0, 0, 0, 0.55);
+    display: flex; flex-direction: column;
+    will-change: transform, opacity;
+  }
+  .dash-top {
+    height: 64px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 18px; padding: 0 26px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .dash-dots { display: flex; gap: 9px; }
+  .dash-dots span { width: 13px; height: 13px; border-radius: 50%; }
+  .dash-dots span:nth-child(1) { background: #ff5f56; }
+  .dash-dots span:nth-child(2) { background: #ffbd2e; }
+  .dash-dots span:nth-child(3) { background: #27c93f; }
+  .dash-url {
+    flex: 1; max-width: 380px; margin: 0 auto;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px; padding: 8px 20px;
+    font-size: 15px; color: var(--muted); text-align: center; letter-spacing: 0.02em;
+  }
+  .live-chip {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #34d399; padding: 7px 16px; border-radius: 999px;
+    border: 1px solid rgba(52, 211, 153, 0.3); background: rgba(52, 211, 153, 0.08);
+  }
+  .live-chip i {
+    width: 9px; height: 9px; border-radius: 50%; background: #34d399;
+    display: inline-block; will-change: transform, opacity;
+  }
+  .dash-body { flex: 1; display: flex; min-height: 0; }
+  .dash-side {
+    width: 236px; flex-shrink: 0; padding: 26px 18px;
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .d-brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 22px; }
+  .d-brand svg { width: 34px; height: 34px; }
+  .d-brand-name { font-size: 17px; font-weight: 800; letter-spacing: 0.12em; }
+  .d-brand-sub { font-size: 11.5px; color: var(--faint); letter-spacing: 0.08em; }
+  .d-item {
+    display: flex; align-items: center; gap: 13px;
+    padding: 13px 14px; border-radius: 12px;
+    font-size: 16.5px; font-weight: 600; color: var(--muted);
+  }
+  .d-item .ic { width: 20px; height: 20px; opacity: 0.85; }
+  .d-item--active {
+    color: #fff;
+    background: linear-gradient(90deg, rgba(123, 47, 190, 0.5), rgba(123, 47, 190, 0.12));
+    border: 1px solid rgba(167, 139, 250, 0.28);
+  }
+  .d-item--active .ic { color: var(--lavender); }
+  .dash-main { flex: 1; min-width: 0; padding: 30px 34px; overflow: hidden; display: flex; flex-direction: column; gap: 24px; }
+  .dash-head { display: flex; align-items: flex-end; justify-content: space-between; }
+  .dash-h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+  .dash-h1 small { display: block; font-size: 14.5px; font-weight: 600; color: var(--faint); margin-top: 5px; }
+  .dash-actions { display: flex; gap: 12px; }
+  .btn {
+    border-radius: 12px; padding: 12px 22px;
+    font-size: 15.5px; font-weight: 700; letter-spacing: 0.02em;
+    border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06);
+    color: #fff; display: flex; align-items: center; gap: 9px;
+  }
+  .btn--primary {
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    border: none; box-shadow: 0 14px 34px rgba(123, 47, 190, 0.45);
+  }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .kpi {
+    border-radius: 18px; padding: 22px 24px;
+    background: var(--card); border: 1px solid var(--card-line);
+    will-change: transform, opacity;
+  }
+  .kpi .k-label { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .kpi .k-val { font-size: 46px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; line-height: 1; }
+  .kpi .k-sub { font-size: 13.5px; color: var(--faint); margin-top: 7px; }
+  .kpi--violet .k-val { color: #a78bfa; }
+  .kpi--green .k-val { color: #34d399; }
+  .kpi--gold .k-val { color: #e9b64c; }
+  .kpi--pink .k-val { color: #f2778d; }
+  .dash-row { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; min-height: 0; }
+  .card {
+    border-radius: 18px; padding: 24px;
+    background: var(--card); border: 1px solid var(--card-line);
+  }
+  .card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .card-t { font-size: 17px; font-weight: 800; }
+  .card-s { font-size: 13px; color: var(--faint); font-weight: 600; }
+  .bars { display: flex; align-items: flex-end; gap: 14px; height: 150px; }
+  .bar-wrap { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+  .bar {
+    width: 100%; border-radius: 6px 6px 3px 3px;
+    background: linear-gradient(180deg, #a78bfa, rgba(123, 47, 190, 0.55));
+    will-change: transform;
+  }
+  .bar:nth-child(3n) { background: linear-gradient(180deg, rgba(167, 139, 250, 0.55), rgba(167, 139, 250, 0.16)); }
+  .spark { margin-top: 16px; }
+  .act { display: flex; flex-direction: column; gap: 0; }
+  .act-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    will-change: transform, opacity;
+  }
+  .act-row:last-child { border-bottom: none; }
+  .act-avatar {
+    width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; color: #fff;
+  }
+  .act-meta { flex: 1; min-width: 0; }
+  .act-name { font-size: 15.5px; font-weight: 700; }
+  .act-desc { font-size: 13px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .act-time { font-size: 12.5px; color: var(--faint); flex-shrink: 0; }
+
+  /* ═══ Scene C — attendance sync ═══ */
+  .focus-card {
+    width: 1540px;
+    border-radius: 30px;
+    background: linear-gradient(180deg, rgba(32, 17, 70, 0.96), rgba(18, 10, 40, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 60px 140px rgba(0, 0, 0, 0.55);
+    padding: 52px 60px 46px;
+    will-change: transform, opacity;
+  }
+  .fc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 44px; }
+  .fc-title { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; }
+  .fc-sub { font-size: 17px; color: var(--muted); margin-top: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    border-radius: 999px; padding: 10px 20px;
+    font-size: 15px; font-weight: 700; color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.07);
+  }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; background: #34d399; display: inline-block; }
+  .sync-flow { position: relative; height: 170px; margin-bottom: 34px; }
+  .node {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 300px; border-radius: 20px; padding: 22px 24px;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex; align-items: center; gap: 18px;
+    will-change: transform, opacity;
+  }
+  .node--dev { left: 0; }
+  .node--cloud { right: 0; }
+  .node-ic {
+    width: 58px; height: 58px; border-radius: 16px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .node--dev .node-ic { background: linear-gradient(135deg, rgba(216, 156, 17, 0.85), rgba(233, 182, 76, 0.65)); }
+  .node--cloud .node-ic { background: linear-gradient(135deg, #7b2fbe, #a78bfa); box-shadow: 0 10px 26px rgba(123, 47, 190, 0.5); }
+  .node-ic svg { width: 30px; height: 30px; color: #fff; }
+  .node-name { font-size: 19px; font-weight: 800; }
+  .node-sub { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .sync-path { position: absolute; left: 300px; right: 300px; top: 50%; height: 2px; transform: translateY(-50%); background: rgba(167, 139, 250, 0.16); }
+  .sync-path .fill { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(216, 156, 17, 0.9), #a78bfa); transform-origin: 0 50%; }
+  .pkt {
+    position: absolute; top: 50%; margin-top: -8px; width: 16px; height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e9b64c, #a78bfa);
+    box-shadow: 0 0 18px rgba(167, 139, 250, 0.9);
+    will-change: transform, opacity;
+  }
+  .sync-rows { display: flex; flex-direction: column; gap: 12px; }
+  .sync-row {
+    display: flex; align-items: center; gap: 18px;
+    padding: 16px 22px; border-radius: 14px;
+    background: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.08);
+    will-change: transform, opacity;
+  }
+  .sync-code { font-size: 15px; font-weight: 800; color: var(--lavender); font-variant-numeric: tabular-nums; width: 130px; }
+  .sync-name { flex: 1; font-size: 16.5px; font-weight: 700; }
+  .sync-time { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sync-ok {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #14a37f, #34d399);
+    display: flex; align-items: center; justify-content: center;
+    will-change: transform, opacity;
+  }
+  .sync-ok svg { width: 14px; height: 14px; color: #fff; }
+  .sync-badge {
+    margin-top: 30px; display: inline-flex; align-items: center; gap: 12px;
+    border-radius: 999px; padding: 13px 24px;
+    background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.32);
+    font-size: 17px; font-weight: 700; color: #6ee7b7;
+    will-change: transform, opacity;
+  }
+  .sync-badge b { color: #fff; font-variant-numeric: tabular-nums; }
+
+  /* ═══ Scene D — leave approvals ═══ */
+  .leave-card .fc-head { margin-bottom: 30px; }
+  .leave-row {
+    display: flex; align-items: center; gap: 20px;
+    padding: 22px 26px; border-radius: 16px;
+    background: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 14px;
+    will-change: transform, opacity;
+  }
+  .leave-avatar {
+    width: 52px; height: 52px; border-radius: 15px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #fff;
+  }
+  .leave-who { flex: 1; min-width: 0; }
+  .leave-name { font-size: 19px; font-weight: 800; }
+  .leave-desc { font-size: 14.5px; color: var(--muted); margin-top: 4px; }
+  .leave-dates { font-size: 15.5px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .status-chip {
+    position: relative; display: inline-flex; align-items: center; gap: 9px;
+    border-radius: 999px; padding: 10px 18px;
+    font-size: 14.5px; font-weight: 800; letter-spacing: 0.04em;
+    will-change: transform, opacity;
+  }
+  .status-chip--pending { color: #e9b64c; background: rgba(216, 156, 17, 0.12); border: 1px solid rgba(216, 156, 17, 0.4); }
+  .status-chip--approved { color: #34d399; background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.42); }
+  .status-chip--declined { color: #f2778d; background: rgba(232, 93, 117, 0.12); border: 1px solid rgba(232, 93, 117, 0.42); }
+  .chip-hide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .burst {
+    position: absolute; top: 50%; left: 50%; width: 74px; height: 74px; margin: -37px 0 0 -37px;
+    border-radius: 50%; pointer-events: none;
+    will-change: transform, opacity;
+  }
+  .burst--ok { border: 2px solid rgba(52, 211, 153, 0.9); }
+  .burst--no { border: 2px solid rgba(242, 119, 141, 0.9); }
+  .leave-approve {
+    border-radius: 12px; padding: 12px 22px;
+    font-size: 15px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    border: none; box-shadow: 0 10px 26px rgba(123, 47, 190, 0.45);
+    will-change: transform;
+  }
+  .leave-summary {
+    margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
+    border-radius: 999px; padding: 13px 24px;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 16px; font-weight: 700; color: var(--muted);
+    will-change: transform, opacity;
+  }
+  .leave-summary b { color: #fff; }
+
+  /* ═══ Scene E — payroll ═══ */
+  .pay-card { padding-bottom: 52px; }
+  .pay-rows { display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px; }
+  .pay-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 26px; border-radius: 16px;
+    background: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.08);
+    will-change: transform, opacity;
+  }
+  .pay-label { font-size: 17px; font-weight: 700; color: var(--muted); }
+  .pay-label small { display: block; font-size: 13.5px; color: var(--faint); margin-top: 4px; font-weight: 600; }
+  .pay-val { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .pay-row--net { border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.07); }
+  .pay-row--net .pay-val { color: #34d399; }
+  .pay-progress { margin-bottom: 34px; }
+  .pay-progress .pp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .pp-label { font-size: 16px; font-weight: 700; color: var(--muted); }
+  .pp-label b { color: #fff; }
+  .pp-pct { font-size: 16px; font-weight: 800; color: var(--lavender); font-variant-numeric: tabular-nums; }
+  .pp-track { height: 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .pp-fill { height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg, #7b2fbe, #a78bfa); transform-origin: 0 50%; will-change: transform; }
+  .pay-status { display: flex; align-items: center; gap: 20px; }
+  .pay-status .chip { font-size: 17px; padding: 13px 24px; }
+  .paid-stamp {
+    margin-left: auto;
+    border: 3px solid #34d399; color: #34d399; border-radius: 16px;
+    padding: 12px 30px; font-size: 26px; font-weight: 800; letter-spacing: 0.22em;
+    transform: rotate(-8deg);
+    will-change: transform, opacity;
+  }
+
+  /* ═══ Scene F — CTA ═══ */
+  .cta { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .cta-mark { width: 104px; height: 104px; margin-bottom: 26px; will-change: transform, opacity; }
+  .cta-title { font-size: 96px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+  .cta-sub { margin-top: 24px; font-size: 26px; font-weight: 600; color: var(--muted); max-width: 900px; line-height: 1.5; }
+  .cta-btn {
+    position: relative; overflow: hidden;
+    margin-top: 46px; display: inline-flex; align-items: center; gap: 18px;
+    border-radius: 18px; padding: 24px 54px;
+    font-size: 24px; font-weight: 800; color: #fff; letter-spacing: 0.01em;
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    box-shadow: 0 22px 60px rgba(123, 47, 190, 0.55);
+    will-change: transform, opacity;
+  }
+  .cta-btn .arr { font-size: 30px; transition: none; }
+  .cta-shine {
+    position: absolute; top: 0; bottom: 0; width: 140px;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    transform: skewX(-18deg);
+    will-change: transform;
+  }
+  .cta-foot {
+    margin-top: 40px; display: flex; align-items: center; gap: 22px;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--faint);
+  }
+  .cta-foot i { width: 6px; height: 6px; border-radius: 50%; background: #34d399; display: inline-block; }
+</style>
+</head>
+<body>
+  <div id="stage" data-composition-id="ukuu-demo" data-start="0" data-width="1920" data-height="1080" data-duration="30">
+
+    <!-- persistent backdrop -->
+    <div class="bg" aria-hidden="true">
+      <div class="bg-grid"></div>
+      <div class="aurora aurora--a" data-layout-allow-overflow></div>
+      <div class="aurora aurora--b" data-layout-allow-overflow></div>
+      <div class="bg-vignette"></div>
+    </div>
+
+    <!-- Scene A — logo sting -->
+    <section class="scene" id="sceneA">
+      <div class="sting">
+        <svg class="sting-mark" id="stingMark" viewBox="0 0 30 30" aria-hidden="true">
+          <defs>
+            <linearGradient id="tileGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7b2fbe" />
+              <stop offset="1" stop-color="#a78bfa" />
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="28" height="28" rx="7" fill="url(#tileGrad)" />
+          <g fill="#ffffff">
+            <path d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09c0,0,9.3,0.01,9.3,0.01z" />
+            <polygon points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1" />
+            <path d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z" />
+          </g>
+        </svg>
+        <div class="sting-kicker" id="stingKicker">Remote HR platform · Africa</div>
+        <h1 class="sting-word" id="stingWord" aria-label="Ukuu HR">
+          <span class="ltr">U</span><span class="ltr">K</span><span class="ltr">U</span><span class="ltr">U</span>
+          <span class="ltr" style="width:0.5em"></span>
+          <span class="ltr">H</span><span class="ltr">R</span>
+        </h1>
+        <p class="sting-tagline" id="stingTagline">HR software that <span class="grad-text">runs your workforce.</span></p>
+      </div>
+    </section>
+
+    <!-- Scene B — dashboard -->
+    <section class="scene" id="sceneB">
+      <div class="dash" id="dash">
+        <div class="dash-top" id="dashTop">
+          <div class="dash-dots"><span></span><span></span><span></span></div>
+          <div class="dash-url">app.ukuuhr.com/dashboard</div>
+          <div class="live-chip" id="liveChip"><i id="liveDot"></i>Live</div>
+        </div>
+        <div class="dash-body">
+          <aside class="dash-side" id="dashSide">
+            <div class="d-brand">
+              <svg viewBox="0 0 30 30" aria-hidden="true">
+                <defs><linearGradient id="tileGrad2" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#7b2fbe" /><stop offset="1" stop-color="#a78bfa" />
+                </linearGradient></defs>
+                <rect x="1" y="1" width="28" height="28" rx="7" fill="url(#tileGrad2)" />
+                <g fill="#fff">
+                  <path d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09z" />
+                  <polygon points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1" />
+                  <path d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33z" />
+                </g>
+              </svg>
+              <div>
+                <div class="d-brand-name">UKUU HR</div>
+                <div class="d-brand-sub">HRMS Platform</div>
+              </div>
+            </div>
+            <div class="d-item d-item--active">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+              Dashboard
+            </div>
+            <div class="d-item">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+              Employees
+            </div>
+            <div class="d-item">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              Attendance
+            </div>
+            <div class="d-item">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l4 12 4-12-3-6"/><path d="M2 9h20"/></svg>
+              Leave
+            </div>
+            <div class="d-item">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+              Payroll
+            </div>
+            <div class="d-item">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+              Reports
+            </div>
+          </aside>
+          <main class="dash-main">
+            <div class="dash-head" id="dashHead">
+              <div class="dash-h1">Good morning, Admin<small>Thursday, 10 September · all systems nominal</small></div>
+              <div class="dash-actions">
+                <div class="btn" id="btnExport">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                  Export
+                </div>
+                <div class="btn btn--primary">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                  New employee
+                </div>
+              </div>
+            </div>
+
+            <div class="kpis" id="kpis">
+              <div class="kpi kpi--violet"><div class="k-label">Employees</div><div class="k-val" id="kpiEmp">0</div><div class="k-sub">+6 this month</div></div>
+              <div class="kpi kpi--green"><div class="k-label">Present today</div><div class="k-val" id="kpiPresent">0</div><div class="k-sub">93% attendance</div></div>
+              <div class="kpi kpi--gold"><div class="k-label">On leave</div><div class="k-val" id="kpiLeave">0</div><div class="k-sub">3 approved · 1 pending</div></div>
+              <div class="kpi kpi--pink"><div class="k-label">Open roles</div><div class="k-val" id="kpiRoles">0</div><div class="k-sub">Across 4 departments</div></div>
+            </div>
+
+            <div class="dash-row">
+              <div class="card">
+                <div class="card-h">
+                  <div>
+                    <div class="card-t">Attendance overview</div>
+                    <div class="card-s">This week</div>
+                  </div>
+                  <div class="chip" style="font-size:13px; padding:8px 14px;"><i></i>Auto-synced</div>
+                </div>
+                <div class="bars" id="bars">
+                  <div class="bar-wrap"><div class="bar" style="height:58%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:72%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:49%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:84%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:66%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:92%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:78%"></div></div>
+                  <div class="bar-wrap"><div class="bar" style="height:88%"></div></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h">
+                  <div>
+                    <div class="card-t">Recent activity</div>
+                    <div class="card-s">Just now</div>
+                  </div>
+                </div>
+                <div class="act">
+                  <div class="act-row">
+                    <div class="act-avatar" style="background:linear-gradient(135deg,#6d28d9,#7c3aed)">AM</div>
+                    <div class="act-meta"><div class="act-name">Amara Mensah</div><div class="act-desc">Requested annual leave · 3 days</div></div>
+                    <div class="act-time">2m</div>
+                  </div>
+                  <div class="act-row">
+                    <div class="act-avatar" style="background:linear-gradient(135deg,#14a37f,#34d399);color:#032e22">JO</div>
+                    <div class="act-meta"><div class="act-name">James Otieno</div><div class="act-desc">Clock-in · Main Entrance</div></div>
+                    <div class="act-time">9m</div>
+                  </div>
+                  <div class="act-row">
+                    <div class="act-avatar" style="background:linear-gradient(135deg,#d89c11,#e9b64c);color:#2b1a00">LC</div>
+                    <div class="act-meta"><div class="act-name">Lindiwe Chanda</div><div class="act-desc">Approved payroll · September</div></div>
+                    <div class="act-time">24m</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene C — attendance sync -->
+    <section class="scene" id="sceneC">
+      <div class="focus-card" id="syncCard">
+        <div class="fc-head">
+          <div>
+            <div class="fc-title">Attendance Sync</div>
+            <div class="fc-sub">Live device → cloud upload · main entrance terminal</div>
+          </div>
+          <div class="chip" id="syncDevice"><i></i>Main Entrance · DS-K1T671 · 192.168.1.50</div>
+        </div>
+
+        <div class="sync-flow">
+          <div class="node node--dev" id="nodeDev">
+            <div class="node-ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div>
+              <div class="node-name">Attendance terminal</div>
+              <div class="node-sub">LAN · REST · 30 min interval</div>
+            </div>
+          </div>
+
+          <div class="sync-path"><div class="fill" id="syncLine"></div></div>
+          <div class="pkt" id="pkt1" style="left:50%"></div>
+          <div class="pkt" id="pkt2" style="left:50%"></div>
+          <div class="pkt" id="pkt3" style="left:50%"></div>
+          <div class="pkt" id="pkt4" style="left:50%"></div>
+
+          <div class="node node--cloud" id="nodeCloud">
+            <div class="node-ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.1-8.87 6 6 0 1 0-11.4 2.35A4 4 0 0 0 6.5 19z"/></svg>
+            </div>
+            <div>
+              <div class="node-name">Ukuu Cloud</div>
+              <div class="node-sub">Firestore · us-east-1</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-rows" id="syncRows">
+          <div class="sync-row">
+            <span class="sync-code">UKU-001</span>
+            <span class="sync-name">Amara Mensah</span>
+            <span class="sync-time">08:02 in · 16:41 out</span>
+            <span class="sync-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="sync-row">
+            <span class="sync-code">UKU-014</span>
+            <span class="sync-name">James Otieno</span>
+            <span class="sync-time">07:58 in · 16:55 out</span>
+            <span class="sync-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="sync-row">
+            <span class="sync-code">UKU-027</span>
+            <span class="sync-name">Lindiwe Chanda</span>
+            <span class="sync-time">08:11 in · 17:02 out</span>
+            <span class="sync-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="sync-row">
+            <span class="sync-code">UKU-042</span>
+            <span class="sync-name">Zane Banda</span>
+            <span class="sync-time">08:05 in · 16:30 out</span>
+            <span class="sync-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div class="sync-row">
+            <span class="sync-code">UKU-058</span>
+            <span class="sync-name">Naledi Khumalo</span>
+            <span class="sync-time">08:19 in · 17:14 out</span>
+            <span class="sync-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+        </div>
+
+        <div class="sync-badge" id="syncBadge">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <b id="syncCount">0</b>&nbsp;punches synced&nbsp;·&nbsp;12 new records
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene D — leave approvals -->
+    <section class="scene" id="sceneD">
+      <div class="focus-card leave-card" id="leaveCard">
+        <div class="fc-head">
+          <div>
+            <div class="fc-title">Leave Requests</div>
+            <div class="fc-sub">3 requests awaiting your review</div>
+          </div>
+          <div class="chip"><i></i>Auto-reminders on</div>
+        </div>
+
+        <div class="leave-row" id="leaveRow1">
+          <div class="leave-avatar" style="background:linear-gradient(135deg,#6d28d9,#7c3aed)">AM</div>
+          <div class="leave-who">
+            <div class="leave-name">Amara Mensah</div>
+            <div class="leave-desc">Annual leave · Marketing</div>
+          </div>
+          <div class="leave-dates">12 – 14 Oct</div>
+          <div class="btn leave-approve" id="approve1">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Approve
+          </div>
+          <div class="status-chip status-chip--pending" id="chip1a">PENDING</div>
+          <div class="status-chip status-chip--approved" id="chip1b" style="opacity:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            APPROVED
+            <span class="burst burst--ok" id="burst1"></span>
+          </div>
+        </div>
+
+        <div class="leave-row" id="leaveRow2">
+          <div class="leave-avatar" style="background:linear-gradient(135deg,#14a37f,#34d399);color:#032e22">JO</div>
+          <div class="leave-who">
+            <div class="leave-name">James Otieno</div>
+            <div class="leave-desc">Sick leave · Engineering</div>
+          </div>
+          <div class="leave-dates">16 – 17 Oct</div>
+          <div class="btn leave-approve" id="approve2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Approve
+          </div>
+          <div class="status-chip status-chip--pending" id="chip2a">PENDING</div>
+          <div class="status-chip status-chip--approved" id="chip2b" style="opacity:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            APPROVED
+            <span class="burst burst--ok" id="burst2"></span>
+          </div>
+        </div>
+
+        <div class="leave-row" id="leaveRow3">
+          <div class="leave-avatar" style="background:linear-gradient(135deg,#d89c11,#e9b64c);color:#2b1a00">LC</div>
+          <div class="leave-who">
+            <div class="leave-name">Lindiwe Chanda</div>
+            <div class="leave-desc">Unpaid leave · Finance</div>
+          </div>
+          <div class="leave-dates">21 – 25 Oct</div>
+          <div class="btn leave-approve" id="approve3" style="background:linear-gradient(135deg,#7a2a3d,#b3425a); box-shadow:0 10px 26px rgba(232,93,117,0.4);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            Decline
+          </div>
+          <div class="status-chip status-chip--pending" id="chip3a">PENDING</div>
+          <div class="status-chip status-chip--declined" id="chip3b" style="opacity:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            DECLINED
+            <span class="burst burst--no" id="burst3"></span>
+          </div>
+        </div>
+
+        <div class="leave-summary" id="leaveSummary">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <b>2 approved</b> · 1 declined · notifications sent
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene E — payroll -->
+    <section class="scene" id="sceneE">
+      <div class="focus-card pay-card" id="payCard">
+        <div class="fc-head">
+          <div>
+            <div class="fc-title">Payroll — September 2026</div>
+            <div class="fc-sub">248 employees · 1 run · fully compliant</div>
+          </div>
+          <div class="chip" id="payStatusChip"><i></i>Run complete</div>
+        </div>
+
+        <div class="pay-rows" id="payRows">
+          <div class="pay-row">
+            <div class="pay-label">Gross pay<small>Salaries + overtime + bonuses</small></div>
+            <div class="pay-val" id="payGross">0</div>
+          </div>
+          <div class="pay-row">
+            <div class="pay-label">Deductions<small>PAYE · NHIF · NSSF · loans</small></div>
+            <div class="pay-val" id="payDed">0</div>
+          </div>
+          <div class="pay-row pay-row--net">
+            <div class="pay-label">Net pay<small>Ready for disbursement</small></div>
+            <div class="pay-val" id="payNet">0</div>
+          </div>
+        </div>
+
+        <div class="pay-progress">
+          <div class="pp-head">
+            <div class="pp-label" id="payLabel">Processing <b>net pay</b>…</div>
+            <div class="pp-pct" id="payPct">0%</div>
+          </div>
+          <div class="pp-track"><div class="pp-fill" id="payBar"></div></div>
+        </div>
+
+        <div class="pay-status">
+          <div class="chip"><i></i>Bank file exported · payslips emailed</div>
+          <div class="paid-stamp" id="paidStamp">PAID</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene F — CTA -->
+    <section class="scene" id="sceneF">
+      <div class="cta">
+        <svg class="cta-mark" id="ctaMark" viewBox="0 0 30 30" aria-hidden="true">
+          <defs>
+            <linearGradient id="tileGrad3" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7b2fbe" /><stop offset="1" stop-color="#a78bfa" />
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="28" height="28" rx="7" fill="url(#tileGrad3)" />
+          <g fill="#ffffff">
+            <path d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09z" />
+            <polygon points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1" />
+            <path d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33z" />
+          </g>
+        </svg>
+        <h1 class="cta-title" id="ctaTitle">Get started <span class="grad-text">free</span></h1>
+        <p class="cta-sub" id="ctaSub">Onboard, track, approve, and schedule — one platform for the entire employee lifecycle.</p>
+        <div class="cta-btn" id="ctaBtn">
+          <span class="cta-shine" id="ctaShine"></span>
+          ukuuhr.com
+          <span class="arr">→</span>
+        </div>
+        <div class="cta-foot" id="ctaFoot"><i></i>9 modules&nbsp;&nbsp;·&nbsp;&nbsp;100% statutory compliance&nbsp;&nbsp;·&nbsp;&nbsp;Works offline first&nbsp;&nbsp;<i></i></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Vendored locally (no third-party CDN dependency): GSAP drives the
+       seekable timeline; the HyperFrames runtime bridges it to the player. -->
+  <script src="vendor/gsap.min.js"></script>
+  <script src="vendor/hyperframe.runtime.iife.js"></script>
+  <script>
+    (function () {
+      if (typeof gsap === "undefined") return;
+
+      const $ = (s, p) => (p || document).querySelector(s);
+      const $$ = (s, p) => Array.from((p || document).querySelectorAll(s));
+
+      const tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+
+      /* ── helpers ── */
+      function countUp(el, to, at, dur) {
+        tl.fromTo(
+          el,
+          { textContent: 0 },
+          {
+            textContent: to,
+            duration: dur || 1.1,
+            ease: "power2.out",
+            snap: { textContent: 1 },
+            onUpdate: function () {
+              const v = this.targets()[0].textContent;
+              el.textContent = Math.round(Number(v)).toLocaleString("en-US");
+            },
+          },
+          at
+        );
+      }
+
+      /* ── persistent ambient motion (seek-safe) ── */
+      tl.to(".aurora--a", { x: 90, y: 40, duration: 5, ease: "sine.inOut", repeat: -1, yoyo: true }, 0);
+      tl.to(".aurora--b", { x: -80, y: -50, duration: 6, ease: "sine.inOut", repeat: -1, yoyo: true }, 0.5);
+
+      /* ── Scene A · logo sting (0 → 3.6) ── */
+      tl.set("#sceneA", { autoAlpha: 1 }, 0);
+      tl.set(["#sceneB", "#sceneC", "#sceneD", "#sceneE", "#sceneF"], { autoAlpha: 0 }, 0);
+
+      tl.from("#stingMark", { scale: 0.5, autoAlpha: 0, rotation: -10, duration: 0.9, ease: "back.out(1.6)" }, 0.25);
+      tl.from("#stingKicker", { y: 18, autoAlpha: 0, duration: 0.55 }, 1.05);
+      tl.from("#stingWord .ltr", { y: 34, autoAlpha: 0, duration: 0.62, stagger: 0.07, ease: "power3.out" }, 1.2);
+      tl.from("#stingTagline", { y: 16, autoAlpha: 0, duration: 0.6 }, 1.75);
+      tl.to("#stingMark", { y: -10, duration: 1.5, ease: "sine.inOut", repeat: -1, yoyo: true }, 1.7);
+      tl.to("#sceneA", { autoAlpha: 0, y: -46, duration: 0.55, ease: "power2.in" }, 3.05);
+
+      /* ── Scene B · dashboard (3.5 → 10.1) ── */
+      tl.from("#sceneB", { autoAlpha: 0, y: 80, scale: 0.95, duration: 0.75, ease: "power3.out" }, 3.5);
+      tl.from("#dashTop", { y: -14, autoAlpha: 0, duration: 0.45 }, 3.8);
+      tl.from("#dashSide .d-item", { x: -18, autoAlpha: 0, duration: 0.45, stagger: 0.055 }, 3.95);
+      tl.from("#dashHead", { y: 16, autoAlpha: 0, duration: 0.5 }, 4.25);
+      tl.from("#btnExport", { autoAlpha: 0, y: 10, duration: 0.4 }, 4.4);
+      tl.from(".btn--primary", { autoAlpha: 0, y: 10, duration: 0.4 }, 4.55);
+      tl.from(".kpi", { y: 30, autoAlpha: 0, duration: 0.6, stagger: 0.09, ease: "power3.out" }, 4.7);
+      countUp("#kpiEmp", 248, 5.05, 1.2);
+      countUp("#kpiPresent", 231, 5.2, 1.2);
+      countUp("#kpiLeave", 11, 5.35, 1.0);
+      countUp("#kpiRoles", 6, 5.5, 0.9);
+      tl.from(".bar", { scaleY: 0, transformOrigin: "50% 100%", duration: 0.5, stagger: 0.06, ease: "power3.out" }, 5.7);
+      tl.from(".act-row", { x: 26, autoAlpha: 0, duration: 0.45, stagger: 0.1 }, 6.0);
+      tl.fromTo("#liveDot", { scale: 0.6, autoAlpha: 0.4 }, { scale: 1.4, autoAlpha: 1, duration: 0.9, repeat: -1, yoyo: true, ease: "sine.inOut" }, 4.2);
+      tl.to("#sceneB", { autoAlpha: 0, y: -56, duration: 0.55, ease: "power2.in" }, 9.55);
+
+      /* ── Scene C · attendance sync (10 → 15.9) ── */
+      tl.from("#sceneC", { autoAlpha: 0, y: 80, duration: 0.65, ease: "power3.out" }, 10.0);
+      tl.from("#syncCard", { scale: 0.97, autoAlpha: 0, y: 40, duration: 0.6 }, 10.1);
+      tl.from("#nodeDev", { x: -30, autoAlpha: 0, duration: 0.5 }, 10.7);
+      tl.from("#nodeCloud", { x: 30, autoAlpha: 0, duration: 0.5 }, 10.75);
+      tl.fromTo("#syncLine", { scaleX: 0 }, { scaleX: 1, transformOrigin: "0% 50%", duration: 0.6, ease: "power2.inOut" }, 10.95);
+      /* packets: enter + travel + exit (no repeats → fully seek-safe) */
+      [1, 2, 3, 4].forEach((n, i) => {
+        const at = 11.2 + i * 0.3;
+        tl.fromTo("#pkt" + n, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.15 }, at);
+        tl.fromTo("#pkt" + n, { x: -255 }, { x: 255, duration: 0.95, ease: "none" }, at + 0.12);
+        tl.to("#pkt" + n, { autoAlpha: 0, duration: 0.2 }, at + 0.92);
+      });
+      tl.from(".sync-row", { y: 22, autoAlpha: 0, duration: 0.42, stagger: 0.12 }, 12.55);
+      tl.from(".sync-row .sync-ok", { scale: 0, autoAlpha: 0, duration: 0.35, stagger: 0.12, ease: "back.out(2.2)" }, 13.15);
+      tl.from("#syncBadge", { y: 16, autoAlpha: 0, duration: 0.5 }, 13.95);
+      countUp("#syncCount", 248, 14.15, 1.0);
+      tl.to("#sceneC", { autoAlpha: 0, y: -56, duration: 0.5, ease: "power2.in" }, 15.4);
+
+      /* ── Scene D · leave approvals (16 → 21.4) ── */
+      tl.from("#sceneD", { autoAlpha: 0, y: 80, duration: 0.65, ease: "power3.out" }, 16.0);
+      tl.from("#leaveCard", { scale: 0.97, autoAlpha: 0, y: 40, duration: 0.6 }, 16.1);
+      tl.from(".leave-row", { y: 24, autoAlpha: 0, duration: 0.5, stagger: 0.12 }, 16.6);
+      /* approve row 1 */
+      tl.fromTo("#approve1", { scale: 1 }, { scale: 1.12, duration: 0.18, yoyo: true, repeat: 1, ease: "power2.inOut" }, 17.7);
+      tl.to("#chip1a", { autoAlpha: 0, duration: 0.22 }, 17.95);
+      tl.fromTo("#chip1b", { scale: 0.6 }, { scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(2)" }, 18.05);
+      tl.fromTo("#burst1", { scale: 0.4, autoAlpha: 1 }, { scale: 1.9, autoAlpha: 0, duration: 0.55, ease: "power2.out" }, 18.1);
+      /* approve row 2 */
+      tl.fromTo("#approve2", { scale: 1 }, { scale: 1.12, duration: 0.18, yoyo: true, repeat: 1, ease: "power2.inOut" }, 18.85);
+      tl.to("#chip2a", { autoAlpha: 0, duration: 0.22 }, 19.1);
+      tl.fromTo("#chip2b", { scale: 0.6 }, { scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(2)" }, 19.2);
+      tl.fromTo("#burst2", { scale: 0.4, autoAlpha: 1 }, { scale: 1.9, autoAlpha: 0, duration: 0.55, ease: "power2.out" }, 19.25);
+      /* decline row 3 */
+      tl.fromTo("#approve3", { scale: 1 }, { scale: 1.12, duration: 0.18, yoyo: true, repeat: 1, ease: "power2.inOut" }, 20.0);
+      tl.to("#chip3a", { autoAlpha: 0, duration: 0.22 }, 20.25);
+      tl.fromTo("#chip3b", { scale: 0.6 }, { scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(2)" }, 20.35);
+      tl.fromTo("#burst3", { scale: 0.4, autoAlpha: 1 }, { scale: 1.9, autoAlpha: 0, duration: 0.55, ease: "power2.out" }, 20.4);
+      tl.from("#leaveSummary", { y: 14, autoAlpha: 0, duration: 0.5 }, 20.75);
+      tl.to("#sceneD", { autoAlpha: 0, y: -56, duration: 0.5, ease: "power2.in" }, 20.9);
+
+      /* ── Scene E · payroll (21.9 → 25.8) ── */
+      tl.from("#sceneE", { autoAlpha: 0, y: 80, duration: 0.65, ease: "power3.out" }, 21.9);
+      tl.from("#payCard", { scale: 0.97, autoAlpha: 0, y: 40, duration: 0.6 }, 22.0);
+      tl.from(".pay-row", { y: 22, autoAlpha: 0, duration: 0.5, stagger: 0.12 }, 22.45);
+      countUp("#payGross", 54200, 23.0, 1.15);
+      countUp("#payDed", 12310, 23.15, 1.1);
+      countUp("#payNet", 41890, 23.3, 1.25);
+      tl.fromTo("#payBar", { scaleX: 0 }, { scaleX: 1, transformOrigin: "0% 50%", duration: 1.45, ease: "power2.inOut" }, 23.25);
+      countUp("#payPct", 100, 23.25, 1.45);
+      tl.to("#payLabel", { autoAlpha: 0, duration: 0.2 }, 24.55);
+      tl.fromTo("#payStatusChip", { scale: 0.9, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.4, ease: "back.out(2)" }, 24.6);
+      tl.fromTo("#paidStamp", { scale: 1.7, autoAlpha: 0, rotation: -18 }, { scale: 1, autoAlpha: 1, rotation: -8, duration: 0.55, ease: "back.out(1.9)" }, 24.75);
+      tl.to("#sceneE", { autoAlpha: 0, y: -56, duration: 0.5, ease: "power2.in" }, 25.3);
+
+      /* ── Scene F · CTA (26.3 → 30) ── */
+      tl.from("#sceneF", { autoAlpha: 0, duration: 0.6 }, 26.3);
+      tl.from("#ctaMark", { scale: 0.6, autoAlpha: 0, rotation: -8, duration: 0.6, ease: "back.out(1.6)" }, 26.5);
+      tl.from("#ctaTitle", { y: 26, autoAlpha: 0, duration: 0.6, ease: "power3.out" }, 26.8);
+      tl.from("#ctaSub", { y: 18, autoAlpha: 0, duration: 0.55 }, 27.15);
+      tl.from("#ctaBtn", { y: 20, autoAlpha: 0, scale: 0.96, duration: 0.55, ease: "power3.out" }, 27.5);
+      tl.fromTo("#ctaShine", { xPercent: -180 }, { xPercent: 220, duration: 1.15, ease: "power2.in" }, 27.85);
+      tl.from("#ctaFoot", { y: 14, autoAlpha: 0, duration: 0.5 }, 27.95);
+      tl.to("#ctaMark", { y: -8, duration: 1.6, ease: "sine.inOut", repeat: -1, yoyo: true }, 28.1);
+      tl.to("#sceneF", { autoAlpha: 0, duration: 0.55, ease: "power2.inOut" }, 29.35);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["ukuu-demo"] = tl;
+    })();
+  </script>
+</body>
+</html>

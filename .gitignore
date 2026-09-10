@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Firebase service account private key — never commit
+Ukuu IAM Admin chat.json
+
 # vercel
 .vercel
 

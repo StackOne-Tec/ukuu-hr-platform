@@ -19,6 +19,7 @@ import {
   User,
 } from "lucide-react"
 import { HOME_HREF, IS_ADMIN_PLATFORM } from "@/lib/platform"
+import { isFirebaseConfigured, signInWithGooglePopup } from "@/lib/firebase-client"
 import { BrandPanel } from "./BrandPanel"
 import { GoogleLogo } from "./google-logo"
 import { UkuuLogoMark } from "@/components/landing/Header"
@@ -77,6 +78,7 @@ export default function AuthExperience() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [banner, setBanner] = useState<Banner>(null)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [done, setDone] = useState(false)
 
   const emailRef = useRef<HTMLInputElement>(null)
@@ -244,6 +246,62 @@ export default function AuthExperience() {
     },
     [loading, done, validate, mode, email, password, remember, name, returnUrl, router]
   )
+
+  const onGoogle = useCallback(async () => {
+    if (googleLoading || done) return
+    setBanner(null)
+    if (!isFirebaseConfigured()) {
+      setBanner({
+        kind: "error",
+        text: "Google sign-in is not configured on this deployment.",
+      })
+      return
+    }
+    setGoogleLoading(true)
+    try {
+      const { idToken } = await signInWithGooglePopup()
+      const res = await fetch("/api/auth/google/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, returnUrl: returnUrl || "/dashboard" }),
+      })
+      const data = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean
+            error?: string
+            user?: { name?: string; email?: string }
+            token?: string
+            returnUrl?: string
+          }
+        | null
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? "Google sign-in failed. Please try again.")
+      }
+      try {
+        localStorage.setItem(
+          "ukuu_session",
+          JSON.stringify({ user: data.user, token: data.token })
+        )
+        localStorage.setItem("ukuu_remember", "1")
+      } catch {
+        /* ignore */
+      }
+      setDone(true)
+      setBanner({
+        kind: "success",
+        text: `Welcome${data.user?.name ? `, ${data.user.name}` : ""}! Redirecting to your workspace…`,
+      })
+      const dest = data.returnUrl || returnUrl || "/dashboard"
+      window.setTimeout(() => router.push(dest), 1100)
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        text: err instanceof Error ? err.message : "Google sign-in failed. Please try again.",
+      })
+    } finally {
+      setGoogleLoading(false)
+    }
+  }, [googleLoading, done, returnUrl, router])
 
   const score = passwordScore(password)
 
@@ -572,13 +630,15 @@ export default function AuthExperience() {
                       <span className="au-divider-text">OR CONTINUE WITH</span>
                     </div>
 
-                    <a
+                    <button
+                      type="button"
                       className="au-btn-google"
-                      href={`/api/auth/google/start?mode=signin${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ""}`}
+                      onClick={onGoogle}
+                      disabled={googleLoading || done}
                     >
                       <GoogleLogo size={18} />
-                      Continue with Google
-                    </a>
+                      {googleLoading ? "Signing in with Google…" : "Continue with Google"}
+                    </button>
 
                     <p className="au-cardfoot">
                       {mode === "signin" &&
