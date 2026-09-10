@@ -180,6 +180,41 @@ export type DeviceEvent = {
 
 export type DeviceUser = { employeeNo: string; name: string; userType: string };
 
+/* POST /ISAPI/AccessControl/UserInfo/Record?format=json — create or replace
+   one person on an ISAPI terminal. The Bridge uses this as the write path for
+   employee enrollment: the terminal is updated first, then the matching cloud
+   employee record is written by the Bridge API route. */
+export async function upsertDeviceUser(opts: {
+  host: string;
+  port: number;
+  auth?: IsapiCreds;
+  user: { employeeNo: string; name: string; userType?: string };
+}): Promise<void> {
+  const body = JSON.stringify({
+    UserInfo: {
+      employeeNo: opts.user.employeeNo,
+      name: opts.user.name,
+      userType: opts.user.userType ?? "normal",
+      Valid: { enable: true },
+    },
+  });
+  const res = await isapiRequest({
+    host: opts.host,
+    port: opts.port,
+    method: "POST",
+    path: "/ISAPI/AccessControl/UserInfo/Record?format=json",
+    body,
+    contentType: "application/json",
+    auth: opts.auth,
+  });
+  if (res.status === 401) {
+    throw new Error("Authentication failed (HTTP 401) — check the device username and password");
+  }
+  if (res.status >= 400) {
+    throw new Error(`Device returned HTTP ${res.status} while enrolling the employee`);
+  }
+}
+
 /* Readable type name for a Hikvision AcsEvent major.minor pair. Common codes:
    1.75 / 1.76 (or 5.75 / 5.76 on access controllers) = check-in / check-out;
    majors 2/3 are device/system; 5.* is access-controller activity. Anything
