@@ -33,11 +33,21 @@ export class FirebaseAuthError extends Error {
 }
 
 function webApiKey(): string {
-  const key = process.env.FIREBASE_WEB_API_KEY?.trim();
+  // Render and other hosts sometimes expose the Firebase web key under the
+  // conventional FIREBASE_API_KEY/NEXT_PUBLIC_FIREBASE_API_KEY name. Accept
+  // those aliases as a compatibility fallback, while keeping the documented
+  // server-side name first. The key is a Firebase web identifier, not a secret.
+  const key = [
+    process.env.FIREBASE_WEB_API_KEY,
+    process.env.FIREBASE_API_KEY,
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  ]
+    .map((value) => value?.trim())
+    .find(Boolean);
   if (!key) {
     throw new FirebaseAuthError(
       "MISSING_CONFIG",
-      "Firebase sign-in is not configured (FIREBASE_WEB_API_KEY)."
+      "Firebase sign-in is not configured (set FIREBASE_WEB_API_KEY on the deployment)."
     );
   }
   return key;
