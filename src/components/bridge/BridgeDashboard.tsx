@@ -17,6 +17,8 @@ import {
   MonitorSmartphone,
   Plus,
   RefreshCw,
+  UserRoundPlus,
+  UsersRound,
   ShieldCheck,
   UploadCloud,
   Zap,
@@ -214,10 +216,16 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
     vendor: "Hikvision",
     model: "",
     ipAddress: "",
+    username: "admin",
+    password: "",
     integrationMode: "REST" as string,
     syncIntervalMinutes: 30,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [deviceUsers, setDeviceUsers] = useState<Record<string, { employeeNo: string; name: string; userType: string }[]>>({});
+  const [usersLoadingId, setUsersLoadingId] = useState<string | null>(null);
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [enrollForm, setEnrollForm] = useState({ employeeNo: "", name: "", username: "admin", password: "" });
 
   const [adding, setAdding] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -380,6 +388,8 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
             integrationMode: form.integrationMode,
             syncIntervalMinutes: mins,
             autoSyncEnabled: true,
+            username: form.username.trim() || "admin",
+            password: form.password || undefined,
           }),
         });
         const data = (await res.json().catch(() => null)) as {
@@ -413,33 +423,30 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
     nameRef.current?.focus();
   };
 
-  /* ── sync a device: retrieve its punch data and upload to the cloud ── */
+  /* ── sync a device: the Bridge pulls the LAN terminal, then stages data ── */
   const syncNow = useCallback(
     async (device: Device) => {
       if (syncingId) return;
       setSyncingId(device.id);
       setBanner(null);
       try {
-        const events = buildSimulatedEvents(employees, device.id);
-        const res = await fetch("/api/v1/bridge/sync", {
+        const res = await fetch(`/api/v1/bridge/devices/${device.id}/sync`, {
           method: "POST",
           headers: authHeaders(true),
-          body: JSON.stringify({ mode: "manual", deviceId: device.id, events }),
+          body: JSON.stringify({}),
         });
         const data = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
+          fetched?: number;
           persisted?: number;
-          attendanceRows?: number;
-          matched?: number;
+          personnelCount?: number;
+          staged?: number;
         } | null;
-        if (!res.ok || !data?.ok) throw new Error(apiError(data, "Unable to sync the device right now."));
+        if (!res.ok || !data?.ok) throw new Error(apiError(data, "Unable to pull the device right now."));
         toast({
-          title: `Synced ${device.name}`,
-          description:
-            data.persisted && data.persisted > 0
-              ? `${data.persisted} new punch(es) uploaded · ${data.attendanceRows ?? 0} attendance row(s) populated.`
-              : "No new punches — device data is already up to date for today.",
+          title: `Pulled ${device.name}`,
+          description: `${data.fetched ?? 0} terminal event(s) read · ${data.personnelCount ?? 0} enrolled people read · ${data.staged ?? 0} new record(s) waiting for cloud review.`,
         });
         await load();
       } catch (err) {
@@ -448,8 +455,48 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
         setSyncingId(null);
       }
     },
-    [syncingId, employees, authHeaders, toast, load]
+    [syncingId, authHeaders, toast, load]
   );
+
+  const readDeviceUsers = useCallback(async (device: Device) => {
+    setUsersLoadingId(device.id);
+    try {
+      const res = await fetch(`/api/v1/bridge/devices/${device.id}/users`, { headers: authHeaders() });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; users?: { employeeNo: string; name: string; userType: string }[] };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Unable to read enrolled people.");
+      setDeviceUsers((current) => ({ ...current, [device.id]: data.users ?? [] }));
+      toast({ title: `Read ${device.name}`, description: `${data.users?.length ?? 0} person(s) are enrolled on the terminal.` });
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Unable to read enrolled people." });
+    } finally {
+      setUsersLoadingId(null);
+    }
+  }, [authHeaders, toast]);
+
+  const enrollEmployee = useCallback(async (device: Device) => {
+    if (!enrollForm.employeeNo.trim() || !enrollForm.name.trim()) {
+      setBanner({ kind: "error", text: "Enter an employee code and full name before enrolling." });
+      return;
+    }
+    setEnrollingId(device.id);
+    try {
+      const res = await fetch(`/api/v1/bridge/devices/${device.id}/users`, {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify(enrollForm),
+      });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; employee?: { employeeNo: string; name: string } };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Unable to enroll the employee.");
+      setEnrollForm({ employeeNo: "", name: "", username: "admin", password: "" });
+      toast({ title: "Employee enrolled", description: `${data.employee?.name ?? enrollForm.name} was pushed to the terminal and saved to the cloud roster.` });
+      await readDeviceUsers(device);
+      await load();
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Unable to enroll the employee." });
+    } finally {
+      setEnrollingId(null);
+    }
+  }, [enrollForm, authHeaders, toast, readDeviceUsers, load]);
 
   /* ── auto-upload configuration (toggle + interval) ── */
   const patchDevice = useCallback(
@@ -916,6 +963,7 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                               AUTO · {d.syncIntervalMinutes}m
                             </span>
                           )}
+                          {deviceUsers[d.id] && <span className="br-pill br-pill--ok"><UsersRound size={10} /> {deviceUsers[d.id].length} enrolled</span>}
                         </div>
                         <div className="mt-0.5 truncate font-br-mono text-br-code-mono-sm text-br-on-surface-variant">
                           {d.vendor}
@@ -923,6 +971,10 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                         </div>
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-2">
+                        <button type="button" className="br-btn br-btn-ghost br-btn--sm" onClick={() => void readDeviceUsers(d)} disabled={usersLoadingId === d.id} title="Read people already enrolled on the terminal">
+                          {usersLoadingId === d.id ? <Loader2 size={13} className="animate-spin" /> : <UsersRound size={13} />}
+                          Read people
+                        </button>
                         <button
                           type="button"
                           className="br-btn br-btn-primary br-btn--sm"
@@ -961,6 +1013,18 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                           )}
                         </label>
                       </div>
+                      {deviceUsers[d.id] && (
+                        <div className="mx-5 mb-3 rounded-lg border border-br-surface-variant bg-br-surface-container-low p-3">
+                          <div className="mb-2 flex items-center gap-2 font-br-sans text-br-body-sm font-semibold text-br-on-surface"><UsersRound size={14} /> Enrolled on terminal</div>
+                          {deviceUsers[d.id].length === 0 ? <div className="font-br-sans text-br-body-sm text-br-outline">No people returned by this terminal.</div> : <div className="grid gap-1 sm:grid-cols-2">{deviceUsers[d.id].map((user) => <div key={user.employeeNo} className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 font-br-sans text-br-body-sm"><span>{user.name}</span><span className="font-br-mono text-br-code-mono-sm text-br-outline">{user.employeeNo}</span></div>)}</div>}
+                          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
+                            <input className="br-input" placeholder="Employee code" value={enrollForm.employeeNo} onChange={(e) => setEnrollForm((f) => ({ ...f, employeeNo: e.target.value }))} />
+                            <input className="br-input" placeholder="Full name" value={enrollForm.name} onChange={(e) => setEnrollForm((f) => ({ ...f, name: e.target.value }))} />
+                            <button type="button" className="br-btn br-btn-primary br-btn--sm" onClick={() => void enrollEmployee(d)} disabled={enrollingId === d.id}>{enrollingId === d.id ? <Loader2 size={13} className="animate-spin" /> : <UserRoundPlus size={13} />} Enroll</button>
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2"><input className="br-input" placeholder="Terminal username (admin)" value={enrollForm.username} onChange={(e) => setEnrollForm((f) => ({ ...f, username: e.target.value }))} /><input className="br-input" type="password" placeholder="Terminal password (optional)" value={enrollForm.password} onChange={(e) => setEnrollForm((f) => ({ ...f, password: e.target.value }))} /></div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -1041,6 +1105,16 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                   {formErrors.ipAddress && (
                     <span className="font-br-sans text-br-body-sm text-br-error">{formErrors.ipAddress}</span>
                   )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="br-field">
+                    <label htmlFor="brd-username">Device username</label>
+                    <input id="brd-username" className="br-input" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="admin" />
+                  </div>
+                  <div className="br-field">
+                    <label htmlFor="brd-password">Device password</label>
+                    <input id="brd-password" className="br-input" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Stored securely for sync" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="br-field">
