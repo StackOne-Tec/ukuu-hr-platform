@@ -70,8 +70,8 @@ method.
 
 The app is deployed on [Render](https://render.com) as a Node web service backed by Cloud Firestore.
 
-- **Build command**: `npm install && npm run build` (installs dependencies and produces the standalone Next.js server)
-- **Start command**: `node .next/standalone/server.js`
+- **Build command**: `npm install && npm run build` (builds the selected portal and prepares its standalone Next.js server)
+- **Start command**: `npm start` (selects `.next/standalone` or `.next-admin/standalone` from `NEXT_PUBLIC_PLATFORM`; the build also keeps the legacy `.next/standalone/server.js` path available for the admin service)
 - **Environment**: `FIREBASE_SERVICE_ACCOUNT` (or `GOOGLE_APPLICATION_CREDENTIALS`), `FIREBASE_WEB_API_KEY` (required for sign-in; `FIREBASE_API_KEY` and `NEXT_PUBLIC_FIREBASE_API_KEY` are accepted aliases), `NODE_VERSION`, `HOSTNAME=0.0.0.0`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`
 - **Health check**: `/api/health`
 
