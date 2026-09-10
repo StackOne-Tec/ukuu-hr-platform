@@ -868,20 +868,22 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
             <div
               role="status"
               aria-live="polite"
-              className={`flex items-start gap-2 rounded-sm border px-3 py-2 font-br-sans text-br-body-sm ${
+              className={`br-banner font-br-sans text-br-body-md ${
                 banner.kind === "error"
-                  ? "border-br-error/30 bg-br-error-container/20 text-br-error"
+                  ? "br-banner--error"
                   : banner.kind === "warn"
-                    ? "border-br-tertiary/30 bg-br-tertiary-container/15 text-br-tertiary"
-                    : "border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]"
+                    ? "br-banner--warn"
+                    : "br-banner--ok"
               }`}
             >
-              {banner.kind === "error" ? (
-                <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
-              ) : (
-                <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" />
-              )}
-              <span>{banner.text}</span>
+              <span className="br-banner-icon">
+                {banner.kind === "error" ? (
+                  <AlertCircle size={16} />
+                ) : (
+                  <CheckCircle2 size={16} />
+                )}
+              </span>
+              <span className="pt-0.5">{banner.text}</span>
             </div>
           )}
 
@@ -889,16 +891,30 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
           {page === "devices" && (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="br-kpi">
-                <div className="br-kpi-value">{summary ? summary.devices.total : devicesReady ? devices.length : "—"}</div>
+                <div className="br-kpi-value br-kpi-value--violet">
+                  {summary ? summary.devices.total : devicesReady ? devices.length : "—"}
+                </div>
                 <div className="br-kpi-label">Registered Devices</div>
                 <div className="br-kpi-sub">
-                  {summary ? `${summary.devices.online} online · ${summary.devices.offline} offline · ${summary.devices.error} error` : "—"}
+                  {summary ? `${summary.devices.offline} offline · ${summary.devices.error} error` : "—"}
                 </div>
               </div>
               <div className="br-kpi">
-                <div className="br-kpi-value">{devicesReady ? autoSyncCount : "—"}</div>
-                <div className="br-kpi-label">Auto-Sync Devices</div>
-                <div className="br-kpi-sub">auto-upload enabled · no device limit</div>
+                <div className="br-kpi-value br-kpi-value--green">
+                  {summary ? summary.devices.online : devicesReady ? devices.filter((d) => d.status === "Online").length : "—"}
+                </div>
+                <div className="br-kpi-label">Online Now</div>
+                <div className="br-kpi-sub">reachable on the LAN</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--gold">{devicesReady ? autoSyncCount : "—"}</div>
+                <div className="br-kpi-label">Auto-Sync On</div>
+                <div className="br-kpi-sub">automatic uploads enabled</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--pink">{devicesReady ? syncsToday : "—"}</div>
+                <div className="br-kpi-label">Syncs Today</div>
+                <div className="br-kpi-sub">device → cloud runs</div>
               </div>
             </div>
           )}
@@ -906,9 +922,30 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
           {page === "sync" && (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="br-kpi">
-                <div className="br-kpi-value">{syncsReady ? syncsToday : "—"}</div>
+                <div className="br-kpi-value br-kpi-value--violet">{syncsReady ? syncsToday : "—"}</div>
                 <div className="br-kpi-label">Sync Runs Today</div>
                 <div className="br-kpi-sub">last {syncsReady && syncs[0] ? timeAgo(syncs[0].ranAt) : "—"}</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--green">
+                  {syncsReady ? syncs.reduce((n, s) => n + (s.persisted ?? 0), 0) : "—"}
+                </div>
+                <div className="br-kpi-label">Records Synced</div>
+                <div className="br-kpi-sub">new records uploaded</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--gold">
+                  {syncsReady ? syncs.reduce((n, s) => n + (s.matched ?? 0), 0) : "—"}
+                </div>
+                <div className="br-kpi-label">Matched</div>
+                <div className="br-kpi-sub">linked to employees</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--pink">
+                  {syncsReady ? syncs.reduce((n, s) => n + (s.unmatched ?? 0), 0) : "—"}
+                </div>
+                <div className="br-kpi-label">Unmatched</div>
+                <div className="br-kpi-sub">awaiting review</div>
               </div>
             </div>
           )}
@@ -916,9 +953,32 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
           {page === "attendance" && (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="br-kpi">
-                <div className="br-kpi-value">{attendanceReady ? attendance.length : "—"}</div>
-                <div className="br-kpi-label">Attendance Synced Today</div>
+                <div className="br-kpi-value br-kpi-value--violet">{attendanceReady ? attendance.length : "—"}</div>
+                <div className="br-kpi-label">Records Synced</div>
                 <div className="br-kpi-sub">device punches → cloud rows</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--green">
+                  {attendanceReady ? attendance.filter((a) => a.status === "Present").length : "—"}
+                </div>
+                <div className="br-kpi-label">Present</div>
+                <div className="br-kpi-sub">marked on time</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--gold">
+                  {attendanceReady ? attendance.filter((a) => a.status === "Late").length : "—"}
+                </div>
+                <div className="br-kpi-label">Late</div>
+                <div className="br-kpi-sub">after scheduled start</div>
+              </div>
+              <div className="br-kpi">
+                <div className="br-kpi-value br-kpi-value--pink">
+                  {attendanceReady
+                    ? attendance.reduce((n, a) => n + (a.workedHours ?? 0), 0).toFixed(1)
+                    : "—"}
+                </div>
+                <div className="br-kpi-label">Hours Logged</div>
+                <div className="br-kpi-sub">total worked hours</div>
               </div>
             </div>
           )}
@@ -947,7 +1007,13 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                   </div>
                 ) : devices.length === 0 ? (
                   <div className="br-empty">
-                    No devices registered yet — use the Add Device form to register the first one from your LAN.
+                    <span className="br-empty-icon">
+                      <MonitorSmartphone size={20} strokeWidth={1.8} />
+                    </span>
+                    <div className="br-empty-title">No devices registered yet</div>
+                    <div className="br-empty-hint">
+                      Use the Add Device form to register the first attendance device from your LAN.
+                    </div>
                   </div>
                 ) : (
                   devices.map((d) => (
@@ -1318,7 +1384,13 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                   </div>
                 ) : syncs.length === 0 ? (
                   <div className="br-empty">
-                    No sync runs yet — press “Sync now” on a registered device to pull and upload its punch data.
+                    <span className="br-empty-icon">
+                      <Clock3 size={20} strokeWidth={1.8} />
+                    </span>
+                    <div className="br-empty-title">No sync runs yet</div>
+                    <div className="br-empty-hint">
+                      Press “Sync now” on a registered device to pull and upload its punch data.
+                    </div>
                   </div>
                 ) : (
                   syncs.slice(0, 14).map((s) => (
@@ -1372,7 +1444,13 @@ export default function BridgeDashboard({ page }: { page: BridgePage }) {
                 </div>
               ) : attendance.length === 0 ? (
                 <div className="br-empty">
-                  No attendance synced yet today — sync a device to populate the retrieved punch data here.
+                  <span className="br-empty-icon">
+                    <CalendarCheck size={20} strokeWidth={1.8} />
+                  </span>
+                  <div className="br-empty-title">No attendance synced yet</div>
+                  <div className="br-empty-hint">
+                    Sync a device to populate the retrieved punch data here.
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

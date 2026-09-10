@@ -317,10 +317,10 @@
 
 /* --- panels (white cards on the lavender page, console style) --- */
 .br-panel {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid #ebe2f5;
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04);
+  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04), 0 10px 30px -24px rgba(43, 28, 101, 0.3);
   min-width: 0;
 }
 .br-panel-head {
@@ -354,20 +354,31 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid #ebe2f5;
   border-radius: 14px;
   padding: 18px 20px;
-  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04);
+  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.04), 0 10px 30px -24px rgba(43, 28, 101, 0.3);
   min-width: 0;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.br-kpi:hover {
+  transform: translateY(-2px);
+  border-color: #e0d5f2;
+  box-shadow: 0 1px 2px rgba(43, 28, 101, 0.05), 0 18px 40px -26px rgba(43, 28, 101, 0.4);
 }
 .br-kpi-value {
-  font-size: 27px;
+  font-size: 30px;
   line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-br-on-surface);
+  font-variant-numeric: tabular-nums;
 }
+.br-kpi-value--violet { color: #7b2fbe; }
+.br-kpi-value--green  { color: #0e9f6e; }
+.br-kpi-value--gold   { color: #cf9f39; }
+.br-kpi-value--pink   { color: #d9506a; }
 .br-kpi-label {
   font-size: 10.5px;
   font-weight: 700;
@@ -548,6 +559,10 @@
   gap: 12px;
   padding: 12px 20px;
   border-bottom: 1px solid #f3eefb;
+  transition: background 0.15s ease;
+}
+.br-dev-row:hover {
+  background: #faf9fe;
 }
 .br-dev-row:last-child {
   border-bottom: 0;
@@ -609,6 +624,12 @@
   border-bottom: 1px solid #f3eefb;
   white-space: nowrap;
 }
+.br-table tbody tr {
+  transition: background 0.15s ease;
+}
+.br-table tbody tr:hover {
+  background: #faf9fe;
+}
 .br-table tbody tr:last-child td {
   border-bottom: 0;
 }
@@ -620,6 +641,10 @@
   gap: 12px;
   padding: 11px 20px;
   border-bottom: 1px solid #f3eefb;
+  transition: background 0.15s ease;
+}
+.br-sync-row:hover {
+  background: #faf9fe;
 }
 .br-sync-row:last-child {
   border-bottom: 0;
@@ -627,11 +652,78 @@
 
 /* --- empty state --- */
 .br-empty {
-  padding: 28px 20px;
+  padding: 34px 20px;
   text-align: center;
   font-size: 13px;
   color: #8a86a8;
 }
+.br-empty-icon {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #7b2fbe;
+  background: rgba(123, 47, 190, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(123, 47, 190, 0.14);
+}
+.br-empty-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-br-on-surface-variant);
+}
+.br-empty-hint {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #8a86a8;
+  max-width: 380px;
+}
+
+/* --- status banner (toast-style, rounded) --- */
+.br-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 12px 30px -22px rgba(43, 28, 101, 0.5);
+  animation: brBannerIn 0.25s ease-out;
+}
+@keyframes brBannerIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.br-banner-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+.br-banner--ok {
+  color: #0b8a60;
+  background: rgba(18, 183, 106, 0.07);
+  border-color: rgba(18, 183, 106, 0.3);
+}
+.br-banner--ok .br-banner-icon { background: rgba(18, 183, 106, 0.12); }
+.br-banner--warn {
+  color: #a16207;
+  background: rgba(216, 156, 17, 0.08);
+  border-color: rgba(216, 156, 17, 0.32);
+}
+.br-banner--warn .br-banner-icon { background: rgba(216, 156, 17, 0.14); }
+.br-banner--error {
+  color: #c22f49;
+  background: rgba(217, 80, 106, 0.07);
+  border-color: rgba(217, 80, 106, 0.3);
+}
+.br-banner--error .br-banner-icon { background: rgba(217, 80, 106, 0.12); }
 
 /* ════════════════════════════════════════════════════════════
    GATEWAY LOGIN — brand lockup on the light cloud-style card

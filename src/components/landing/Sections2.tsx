@@ -12,11 +12,12 @@ export function Download() {
           <Reveal>
             <p className="lp-section-eyebrow lp-section-eyebrow--light">Get Started</p>
             <h2 className="lp-section-title lp-section-title--light">
-              Run Ukuu HR anywhere.
+              The Bridge. On desktop or in your browser.
             </h2>
             <p className="lp-section-sub lp-section-sub--light">
-              Desktop apps, Docker container, or browser PWA — choose what works
-              for you.
+              Download the Ukuu HR Bridge desktop app for Windows or macOS, or
+              open the identical web Bridge right in your browser — same cloud
+              sign-in, same devices, same dashboard.
             </p>
           </Reveal>
         </div>
@@ -38,11 +39,14 @@ export function Download() {
               </div>
               <span className="lp-dl-verified">
                 <MIcon name="verified" size={14} />
-                Ad-hoc signed · Self-contained
+                Access Sync Bridge · v3.4.2
               </span>
             </div>
-            <h3>Windows</h3>
-            <p>Windows 10+ · 64-bit — Self-contained .exe</p>
+            <h3>Bridge for Windows</h3>
+            <p>
+              Windows 10+ · 64-bit — the same Access Sync Bridge as the web app,
+              as a self-contained .exe.
+            </p>
             <a
               className="lp-dl-btn"
               href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-Windows-x64.exe"
@@ -50,7 +54,11 @@ export function Download() {
               rel="noreferrer"
             >
               <MIcon name="download" size={17} />
-              Download .exe
+              Download Bridge .exe · v3.4.2
+            </a>
+            <a className="lp-dl-web" href="/bridge/login">
+              <MIcon name="login" size={15} />
+              Or open the same Bridge in your browser
             </a>
             <p className="lp-dl-note">
               ~48 MB · .exe file. SmartScreen may warn on first run — click
@@ -59,11 +67,29 @@ export function Download() {
           </Reveal>
 
           <Reveal className="lp-dl-card" delay={80}>
-            <div className="lp-dl-icon">
-              <AppleLogo size={26} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+                marginBottom: 18,
+              }}
+            >
+              <div className="lp-dl-icon">
+                <AppleLogo size={26} />
+              </div>
+              <span className="lp-dl-verified">
+                <MIcon name="verified" size={14} />
+                Access Sync Bridge · v3.4.2
+              </span>
             </div>
-            <h3>macOS</h3>
-            <p>macOS 11+ · Apple Silicon &amp; Intel (x64) — Drag-to-install .dmg</p>
+            <h3>Bridge for macOS</h3>
+            <p>
+              macOS 11+ · Apple Silicon &amp; Intel (x64) — drag-to-install .dmg
+              of the same Access Sync Bridge.
+            </p>
             <a
               className="lp-dl-btn"
               href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/download/v3.4.2/UkuuHr-macOS-arm64.dmg"
@@ -71,7 +97,7 @@ export function Download() {
               rel="noreferrer"
             >
               <MIcon name="download" size={17} />
-              Download .dmg (Apple Silicon)
+              Download .dmg · v3.4.2 (Apple Silicon)
             </a>
             <a
               className="lp-dl-btn lp-dl-btn--sub"
@@ -81,6 +107,10 @@ export function Download() {
             >
               <MIcon name="download" size={17} />
               Intel (x64) .dmg
+            </a>
+            <a className="lp-dl-web" href="/bridge/login">
+              <MIcon name="login" size={15} />
+              Or open the same Bridge in your browser
             </a>
             <p className="lp-dl-note">
               Codemagic publishes both Apple Silicon and Intel (x64) builds.
@@ -130,6 +160,8 @@ export function Download() {
               Ukuu HR is also a PWA. Open{" "}
               <a href="#cta">the web app</a> in Chrome or Edge, then click the
               install icon in the address bar — works on both Windows and macOS.
+              Need just the Bridge? No install required —{" "}
+              <a href="/bridge/login">open it in any browser</a>.
             </p>
           </div>
         </Reveal>
