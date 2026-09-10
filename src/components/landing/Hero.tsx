@@ -1,107 +1,101 @@
 "use client"
 
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Pause, Play } from "lucide-react"
+import type { HyperframesPlayer } from "@hyperframes/player"
 import { MIcon } from "./icons"
-import { UkuuLogoMark } from "./Header"
 
-function DashboardMock() {
-  // Mini stylised app dashboard that stands in for the demo reel preview
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        background: "linear-gradient(135deg, #0E0620 0%, #1A0D42 50%, #2D1B69 100%)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 22,
-      }}
-    >
-      <div style={{ opacity: 0.75 }}>
-        <UkuuLogoMark size={72} />
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          flexWrap: "wrap",
-          justifyContent: "center",
-          padding: "0 32px",
-          maxWidth: 760,
-        }}
+/* The <hyperframes-player> web component is not part of React's intrinsic
+   elements — declare it so TS accepts the JSX tag. */
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "hyperframes-player": DetailedHTMLProps<
+        HTMLAttributes<HyperframesPlayer>,
+        HyperframesPlayer
       >
-        {[
-          { label: "Employees", val: "248", color: "#A78BFA" },
-          { label: "Present today", val: "231", color: "#14a37f" },
-          { label: "On leave", val: "11", color: "#d89c11" },
-          { label: "Open roles", val: "6", color: "#e85d75" },
-        ].map((k) => (
-          <div
-            key={k.label}
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 12,
-              padding: "14px 22px",
-              minWidth: 128,
-              textAlign: "left",
-            }}
-          >
-            <div style={{ fontSize: 24, fontWeight: 800, color: k.color, letterSpacing: "-0.02em" }}>
-              {k.val}
-            </div>
-            <div style={{ fontSize: 11.5, color: "rgba(243,240,255,0.55)", marginTop: 4 }}>
-              {k.label}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div
-        style={{
-          marginTop: 4,
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 8,
-          height: 54,
-        }}
-      >
-        {[38, 52, 30, 46, 22, 40, 54, 34, 48, 26, 44, 32, 50, 28, 42, 36, 24, 46].map(
-          (h, i) => (
-            <div
-              key={i}
-              style={{
-                width: 12,
-                borderRadius: 4,
-                height: "100%",
-                display: "flex",
-                alignItems: "flex-end",
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: `${(h / 54) * 100}%`,
-                  borderRadius: 4,
-                  background:
-                    i % 3 === 0
-                      ? "linear-gradient(180deg, #A78BFA, #7B2FBE)"
-                      : "rgba(167,139,250,0.25)",
-                }}
-              />
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  )
+    }
+  }
 }
 
 export function Hero() {
-  const scrollVideo = () => {
+  const playerRef = useRef<HyperframesPlayer | null>(null)
+  const progressRef = useRef<HTMLDivElement | null>(null)
+
+  const [playing, setPlaying] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  const scrollVideo = useCallback(() => {
     const frame = document.getElementById("lpVideoFrame")
     frame?.scrollIntoView({ behavior: "smooth", block: "center" })
-  }
+  }, [])
+
+  /* Mount the HyperFrames composition on the player element and listen for
+     playback events. The player module is loaded client-side only — its
+     custom-element class extends HTMLElement, so importing it at module level
+     would crash server-side rendering. Attributes are set imperatively so
+     playback options (autoplay, loop, muted, audio-locked) are guaranteed
+     regardless of how React serializes custom-element props. */
+  useEffect(() => {
+    let disposed = false
+    let teardown: (() => void) | null = null
+    void import("@hyperframes/player").then(() => {
+      const el = playerRef.current
+      if (!el || disposed) return
+
+      el.setAttribute("src", "/demo/ukuu-demo.html")
+      el.setAttribute("width", "1920")
+      el.setAttribute("height", "1080")
+      el.setAttribute("autoplay", "")
+      el.setAttribute("loop", "")
+      el.setAttribute("muted", "")
+      el.setAttribute("audio-locked", "")
+
+      const onReady = () => setReady(true)
+      const onPlay = () => setPlaying(true)
+      const onPause = () => setPlaying(false)
+      const onTime = (e: Event) => {
+        const { currentTime } = (e as CustomEvent<{ currentTime: number }>).detail ?? {}
+        if (typeof currentTime === "number" && el.duration && progressRef.current) {
+          progressRef.current.style.transform = `scaleX(${Math.min(1, currentTime / el.duration)})`
+        }
+      }
+      const onError = () => setHasError(true)
+
+      el.addEventListener("ready", onReady)
+      el.addEventListener("play", onPlay)
+      el.addEventListener("pause", onPause)
+      el.addEventListener("timeupdate", onTime)
+      el.addEventListener("error", onError)
+      teardown = () => {
+        el.removeEventListener("ready", onReady)
+        el.removeEventListener("play", onPlay)
+        el.removeEventListener("pause", onPause)
+        el.removeEventListener("timeupdate", onTime)
+        el.removeEventListener("error", onError)
+      }
+    })
+    return () => {
+      disposed = true
+      teardown?.()
+    }
+  }, [])
+
+  const togglePlay = useCallback(() => {
+    const el = playerRef.current
+    if (!el || hasError) return
+    try {
+      if (el.paused) {
+        const p = el.play() as unknown as Promise<void> | undefined
+        p?.catch?.(() => {})
+      } else {
+        el.pause()
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [hasError])
 
   return (
     <section className="lp-hero">
@@ -167,49 +161,35 @@ export function Hero() {
       <div className="lp-hero-preview" id="demo">
         <div className="lp-video" style={{ margin: "0 auto" }}>
           <div className="lp-video-frame" id="lpVideoFrame">
-            <DashboardMock />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "radial-gradient(ellipse at center, transparent 55%, rgba(14,6,32,0.55) 100%)",
-                pointerEvents: "none",
-              }}
-            />
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Play demo"
-              style={{
-                width: 76,
-                height: 76,
-                borderRadius: "50%",
-                border: "none",
-                cursor: "pointer",
-                background: "linear-gradient(135deg, #7B2FBE, #A78BFA)",
-                boxShadow: "0 12px 40px rgba(123,47,190,0.55)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                transition: "transform 0.25s ease, box-shadow 0.25s ease",
-              }}
-              className="lp-play-btn"
-            >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
+            {/* HyperFrames composition — a live, seekable product demo
+                rendered from /demo/ukuu-demo.html (1920×1080). */}
+            <hyperframes-player ref={playerRef} className="lp-player" />
+            <div className="lp-video-vignette" aria-hidden="true" />
+
+            {!ready && !hasError && (
+              <div className="lp-video-loading" aria-hidden="true">
+                <span />
+              </div>
+            )}
+
+            {hasError ? (
+              <div className="lp-video-error" role="status">
+                Demo unavailable — check your connection and refresh.
+              </div>
+            ) : (
+              <button
+                type="button"
+                aria-label={playing ? "Pause demo" : "Play demo"}
+                className={`lp-play-overlay${playing ? " lp-play-overlay--playing" : ""}`}
+                onClick={togglePlay}
+              >
+                {playing ? <Pause size={26} /> : <Play size={26} className="lp-play-tri" />}
+              </button>
+            )}
+
+            <div className="lp-video-progress" aria-hidden="true">
+              <div className="lp-video-progress-fill" ref={progressRef} />
+            </div>
           </div>
         </div>
       </div>

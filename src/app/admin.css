@@ -462,8 +462,8 @@ html[data-theme="dark"] .bk-admin-topbar { background: rgba(26, 15, 46, 0.8); bo
 /* ───── Grids ───── */
 .bk-admin-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 25vw, 400px); gap: 24px; }
 @media (max-width: 1200px) { .bk-admin-grid-2 { grid-template-columns: 1fr; } }
-.bk-admin-grid-2-even { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-@media (max-width: 900px) { .bk-admin-grid-2-even { grid-template-columns: 1fr; } }
+.bk-admin-grid-2-even { display: grid; grid-template-columns: 1fr; gap: 24px; }
+@media (min-width: 901px) { .bk-admin-grid-2-even { grid-template-columns: 1fr 1fr; } }
 
 /* ───── Stat box ───── */
 .bk-admin-stat-box { text-align: center; padding: 16px; background: var(--bk-muted); border-radius: var(--bk-radius); }

@@ -79,18 +79,39 @@ async function idToolkit(
   endpoint: string,
   payload: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(`${IDENTITY_TOOLKIT}/${endpoint}?key=${webApiKey()}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ returnSecureToken: true, ...payload }),
-    cache: "no-store",
-  });
-  const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok || !body) {
-    const raw = (body?.error as { message?: string } | undefined)?.message ?? "UNKNOWN";
-    throw new FirebaseAuthError(normalizeCode(raw), raw);
+  const attempt = async () => {
+    const res = await fetch(`${IDENTITY_TOOLKIT}/${endpoint}?key=${webApiKey()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnSecureToken: true, ...payload }),
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok || !body) {
+      const raw = (body?.error as { message?: string } | undefined)?.message ?? "UNKNOWN";
+      throw new FirebaseAuthError(normalizeCode(raw), raw);
+    }
+    return body;
+  };
+  try {
+    return await attempt();
+  } catch (e) {
+    // First request right after boot can hit a connect timeout on slow links
+    // (undici UND_ERR_CONNECT_TIMEOUT). One retry makes cold-start sign-ins
+    // reliable; FirebaseAuthError responses (wrong password etc.) are never
+    // retried because they are authoritative API answers, not transport faults.
+    const cause = (e as { cause?: { code?: string } }).cause;
+    const retryable =
+      cause?.code === "UND_ERR_CONNECT_TIMEOUT" ||
+      cause?.code === "ECONNRESET" ||
+      cause?.code === "ETIMEDOUT" ||
+      cause?.code === "ENOTFOUND";
+    if (retryable) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return attempt();
+    }
+    throw e;
   }
-  return body;
 }
 
 export type VerifiedIdentity = {
