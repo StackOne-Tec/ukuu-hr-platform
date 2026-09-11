@@ -1,18 +1,42 @@
 import "server-only";
 import { getAuth } from "firebase-admin/auth";
-import { getFirebaseApp } from "@/lib/firebase";
+import {
+  getFirebaseApp,
+  firebaseConfigured,
+  firebaseAuthConfigured,
+} from "@/lib/firebase";
 import { db } from "@/lib/db";
+import {
+  localCredentialGet,
+  localCredentialUpsert,
+  localCredentialDeleteByUid,
+  hashPassword,
+  verifyPassword,
+} from "@/lib/local-store";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Firebase Authentication — server-side credential verification.
 
-   All identity now lives in Firebase Auth (never in our Firestore):
-     - sign-in  → Identity Toolkit REST (accounts:signInWithPassword) with the
-                  public web API key; Firebase validates the credentials.
-     - sign-up  → Admin SDK createUser; Firebase stores the password securely.
-     - Google   → the Google id_token is exchanged through signInWithIdp so the
-                  Google identity is minted into Firebase Auth.
-     - reset    → Admin SDK generatePasswordResetLink.
+   All identity now lives in Firebase Auth (never in our Firestore). The
+   module has three capability tiers, chosen automatically per deployment:
+
+     1. Admin SDK   — FIREBASE_SERVICE_ACCOUNT configured. Full capabilities
+                      (createUser, password reset links, verification links,
+                      user deletion, password updates).
+     2. Web key     — only the public web API key (FIREBASE_WEB_API_KEY or an
+                      alias). Everything still runs against the REAL Firebase
+                      project through Google's Identity Toolkit REST API:
+                        - sign-in  → accounts:signInWithPassword
+                        - sign-up  → accounts:signUp
+                        - Google   → accounts:signInWithIdp
+                        - reset    → accounts:sendOobCode (PASSWORD_RESET)
+                        - verify   → accounts:sendOobCode (VERIFY_EMAIL,
+                                     needs the user's idToken from sign-up)
+                        - delete   → accounts:update { delete: true }
+                        - profile  → accounts:lookup (emailVerified)
+                      The web key is a public identifier, not a secret.
+     3. Local       — neither configured: scrypt-hashed credentials in the
+                      local file-backed store (same error contract).
 
    Legacy accounts (created before this migration, stored with a plaintext
    passwordHash) are verified locally once and automatically migrated into
@@ -120,22 +144,43 @@ export type VerifiedIdentity = {
   emailVerified: boolean;
 };
 
-/** Verify email + password against Firebase Auth. Throws FirebaseAuthError. */
+/** Verify email + password against Firebase Auth. Throws FirebaseAuthError.
+    Without any Firebase configuration, verifies against the local credential
+    store (scrypt hashes) instead — same error contract. */
 export async function signInWithPassword(
   email: string,
   password: string
 ): Promise<VerifiedIdentity> {
+  if (!firebaseAuthConfigured()) {
+    const cred = await localCredentialGet(email);
+    if (!cred) throw new FirebaseAuthError("EMAIL_NOT_FOUND", "EMAIL_NOT_FOUND");
+    if (!verifyPassword(password, cred.passwordHash)) {
+      throw new FirebaseAuthError("INVALID_PASSWORD", "INVALID_PASSWORD");
+    }
+    return { uid: cred.uid, email: cred.email, emailVerified: cred.emailVerified === true };
+  }
   const body = await idToolkit("accounts:signInWithPassword", { email, password });
   const uid = typeof body.localId === "string" ? body.localId : "";
   if (!uid) throw new FirebaseAuthError("UNKNOWN", "Firebase did not return a user id.");
   // The sign-in REST response does NOT include the verified flag, so read the
-  // authoritative status from the Admin SDK instead (one extra call per login).
+  // authoritative status: Admin SDK when available, otherwise one extra
+  // accounts:lookup call keyed by the idToken the sign-in just returned.
   let emailVerified = false;
-  try {
-    const record = await getAuth(getFirebaseApp()).getUser(uid);
-    emailVerified = record.emailVerified === true;
-  } catch {
-    emailVerified = body.emailVerified === true;
+  if (firebaseConfigured()) {
+    try {
+      const record = await getAuth(getFirebaseApp()).getUser(uid);
+      emailVerified = record.emailVerified === true;
+    } catch {
+      emailVerified = body.emailVerified === true;
+    }
+  } else if (typeof body.idToken === "string" && body.idToken) {
+    try {
+      const lookup = await idToolkit("accounts:lookup", { idToken: body.idToken });
+      const users = lookup.users as Array<{ emailVerified?: boolean }> | undefined;
+      emailVerified = users?.[0]?.emailVerified === true;
+    } catch {
+      emailVerified = body.emailVerified === true;
+    }
   }
   return {
     uid,
@@ -144,11 +189,29 @@ export async function signInWithPassword(
   };
 }
 
-/** Create a Firebase Auth user (password stored securely by Firebase). */
+/** Create a Firebase Auth user (password stored securely by Firebase).
+    Web-key deployments use the Identity Toolkit signUp endpoint — the returned
+    idToken lets callers roll the user back and send a verification email
+    without any Admin SDK. Locally: store a scrypt hash in the local store. */
 export async function createFirebaseUser(
   email: string,
   password: string
-): Promise<{ uid: string }> {
+): Promise<{ uid: string; idToken?: string }> {
+  if (!firebaseAuthConfigured()) {
+    const existing = await localCredentialGet(email);
+    if (existing) throw new FirebaseAuthError("EMAIL_EXISTS", "EMAIL_EXISTS");
+    const cred = await localCredentialUpsert(email, hashPassword(password));
+    return { uid: cred.uid };
+  }
+  if (!firebaseConfigured()) {
+    const body = await idToolkit("accounts:signUp", { email, password });
+    const uid = typeof body.localId === "string" ? body.localId : "";
+    if (!uid) throw new FirebaseAuthError("UNKNOWN", "Firebase did not return a user id.");
+    return {
+      uid,
+      idToken: typeof body.idToken === "string" ? body.idToken : undefined,
+    };
+  }
   try {
     const record = await getAuth(getFirebaseApp()).createUser({ email, password });
     return { uid: record.uid };
@@ -161,10 +224,14 @@ export async function createFirebaseUser(
   }
 }
 
-/** Mint (or return) the Firebase Auth account behind a Google id_token. */
+/** Mint (or return) the Firebase Auth account behind a Google id_token.
+    Google OAuth needs a real Firebase project — never available locally. */
 export async function signInWithGoogleIdToken(
   googleIdToken: string
 ): Promise<VerifiedIdentity & { isNewUser: boolean }> {
+  if (!firebaseAuthConfigured()) {
+    throw new FirebaseAuthError("PROVIDER_DISABLED", "PROVIDER_DISABLED");
+  }
   const body = await idToolkit("accounts:signInWithIdp", {
     postBody: `providerId=google.com&id_token=${encodeURIComponent(googleIdToken)}`,
     requestUri: "http://localhost",
@@ -180,11 +247,43 @@ export async function signInWithGoogleIdToken(
   };
 }
 
-/** Firebase-managed password reset link (the app emails it in its own template). */
+/** Firebase-managed password reset link (the app emails it in its own
+    template). Web-key deployments: try to get the raw oob link; if the project
+    disallows returning links, Firebase emails its own reset message instead —
+    the returned empty string tells callers to skip their own delivery. */
 export async function generatePasswordResetLink(
   email: string,
   continueUrl: string
 ): Promise<string> {
+  if (!firebaseAuthConfigured()) {
+    throw new FirebaseAuthError("LOCAL_MODE_EMAIL", "LOCAL_MODE_EMAIL");
+  }
+  if (!firebaseConfigured()) {
+    try {
+      const body = await idToolkit("accounts:sendOobCode", {
+        requestType: "PASSWORD_RESET",
+        email,
+        continueUrl,
+        returnOobLink: true,
+      });
+      return typeof body.oobLink === "string" ? body.oobLink : "";
+    } catch (e) {
+      if (e instanceof FirebaseAuthError && e.code === "EMAIL_NOT_FOUND") throw e;
+      // returnOobLink can be disallowed for unauthenticated callers — fall
+      // back to letting Firebase send its own password-reset email.
+      try {
+        await idToolkit("accounts:sendOobCode", {
+          requestType: "PASSWORD_RESET",
+          email,
+          continueUrl,
+        });
+        return "";
+      } catch (e2) {
+        if (e2 instanceof FirebaseAuthError) throw e2;
+        throw e;
+      }
+    }
+  }
   try {
     return await getAuth(getFirebaseApp()).generatePasswordResetLink(email, { url: continueUrl });
   } catch (e) {
@@ -192,11 +291,31 @@ export async function generatePasswordResetLink(
   }
 }
 
-/** Firebase-managed email verification link (the app emails it in its own template). */
+/** Firebase-managed email verification link (the app emails it in its own
+    template). Web-key deployments need the user's idToken (as returned by
+    accounts:signUp) — VERIFY_EMAIL cannot be minted for arbitrary users
+    without the Admin SDK. An empty string means Firebase already emailed the
+    user with its own template. */
 export async function generateEmailVerificationLink(
   email: string,
-  continueUrl: string
+  continueUrl: string,
+  idToken?: string
 ): Promise<string> {
+  if (!firebaseAuthConfigured()) {
+    throw new FirebaseAuthError("LOCAL_MODE_EMAIL", "LOCAL_MODE_EMAIL");
+  }
+  if (!firebaseConfigured()) {
+    if (!idToken) {
+      throw new FirebaseAuthError("LOCAL_MODE_EMAIL", "LOCAL_MODE_EMAIL");
+    }
+    const body = await idToolkit("accounts:sendOobCode", {
+      requestType: "VERIFY_EMAIL",
+      idToken,
+      continueUrl,
+      returnOobLink: true,
+    });
+    return typeof body.oobLink === "string" ? body.oobLink : "";
+  }
   try {
     return await getAuth(getFirebaseApp()).generateEmailVerificationLink(email, { url: continueUrl });
   } catch (e) {
@@ -231,9 +350,52 @@ function linkError(e: unknown, continueUrl: string): FirebaseAuthError {
   );
 }
 
-/** Remove a Firebase Auth user (used to roll back failed registrations). */
-export async function deleteFirebaseUser(uid: string): Promise<void> {
+/** Remove a Firebase Auth user (used to roll back failed registrations).
+    Web-key deployments require the idToken returned by accounts:signUp; without
+    it the user cannot be deleted from the server (logged and skipped). */
+export async function deleteFirebaseUser(uid: string, idToken?: string): Promise<void> {
+  if (!firebaseAuthConfigured()) {
+    await localCredentialDeleteByUid(uid);
+    return;
+  }
+  if (!firebaseConfigured()) {
+    if (idToken) {
+      await idToolkit("accounts:update", {
+        idToken,
+        delete: true,
+        returnSecureToken: false,
+      });
+      return;
+    }
+    console.warn(
+      `[firebase-auth] cannot delete Firebase user ${uid} without an idToken (web-key-only deployment) — left in Firebase Auth.`
+    );
+    return;
+  }
   await getAuth(getFirebaseApp()).deleteUser(uid);
+}
+
+/** Change a Firebase Auth password on web-key-only deployments: prove the
+    current password with a fresh sign-in, then update via the returned
+    idToken. Admin-SDK deployments never reach this (they use updateUser). */
+export async function changeFirebasePasswordRest(
+  email: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const body = await idToolkit("accounts:signInWithPassword", {
+    email,
+    password: currentPassword,
+  });
+  const idToken = typeof body.idToken === "string" ? body.idToken : "";
+  if (!idToken) {
+    throw new FirebaseAuthError("UNKNOWN", "Firebase did not return a sign-in token.");
+  }
+  await idToolkit("accounts:update", {
+    idToken,
+    password: newPassword,
+    returnSecureToken: false,
+  });
 }
 
 /* ─── friendly messages ──────────────────────────────────────────────────── */
@@ -252,6 +414,9 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   PROVIDER_DISABLED:
     "Google sign-in is not enabled for this project — enable it in the Firebase console (Authentication → Sign-in method).",
   MISSING_CONFIG: "Sign-in is not fully configured on this deployment.",
+  LOCAL_MODE_EMAIL:
+    "This email link can't be generated on the current deployment configuration — contact your administrator.",
+  INVALID_LOGIN_CREDENTIALS: "Incorrect email or password.",
   UNAUTHORIZED_CONTINUE_URI:
     "The email link couldn't be created — add your app domain to Firebase Console → Authentication → Settings → Authorized domains.",
   RESET_REQUIRED:

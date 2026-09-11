@@ -77,3 +77,6 @@ server.log
 UKUU Firebase Admin SDK.json
 *.service-account.json
 *serviceAccount*.json
+
+# Local fallback data store (used when no Firebase service account is configured)
+.data/

@@ -45,14 +45,18 @@ export async function POST(req: Request) {
     try {
       // The reset link is minted by Firebase Auth (it embeds a signed code
       // that lets the user choose a new password); we deliver it in our own
-      // branded email. Unknown accounts simply get no email — the response
-      // below never reveals whether the account exists.
-      const resetUrl = await generatePasswordResetLink(email, `${origin}/login`)
-      void sendEmail(
-        email,
-        "Reset your Ukuu HR password",
-        passwordResetEmailHtml(user.name ?? "", resetUrl)
-      )
+      // branded email. Web-key-only deployments may hand back an empty link,
+      // in which case Firebase already sent its own reset email. Unknown
+      // accounts simply get no email — the response below never reveals
+      // whether the account exists.
+      const resetUrl = await generatePasswordResetLink(email, `${origin}/login`);
+      if (resetUrl) {
+        void sendEmail(
+          email,
+          "Reset your Ukuu HR password",
+          passwordResetEmailHtml(user.name ?? "", resetUrl)
+        );
+      }
     } catch (e) {
       logDbError(e, "auth.forgot.resetLink")
     }

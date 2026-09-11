@@ -93,8 +93,9 @@ export async function POST(req: Request) {
         },
       });
     } catch (e) {
-      // Roll back the Firebase user so a failed invite leaves no orphan identity.
-      await deleteFirebaseUser(fbUser.uid).catch(() => {});
+      // Roll back the Firebase user so a failed invite leaves no orphan identity
+      // (the signUp idToken authorizes the delete on web-key-only deployments).
+      await deleteFirebaseUser(fbUser.uid, fbUser.idToken).catch(() => {});
       throw e;
     }
 

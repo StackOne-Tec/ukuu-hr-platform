@@ -5,7 +5,15 @@ import {
   type Transaction,
   type WhereFilterOp,
 } from "firebase-admin/firestore";
-import { getDb } from "@/lib/firebase";
+import { getDb, firebaseConfigured } from "@/lib/firebase";
+import {
+  localGet,
+  localAll,
+  localCreate,
+  localSet,
+  localMerge,
+  localDelete,
+} from "@/lib/local-store";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Ukuu HR data layer — Cloud Firestore.
@@ -142,6 +150,13 @@ const NOT_IN_MAX = 10;
 
 function matchesEquals(value: unknown, expected: unknown): boolean {
   if (expected === null) return value === null || value === undefined;
+  // Date-aware equality: local-store rows revive ISO strings into Dates, so
+  // compare temporally when either side is a Date.
+  if (expected instanceof Date || value instanceof Date) {
+    const et = expected instanceof Date ? expected.getTime() : new Date(String(expected)).getTime();
+    const vt = value instanceof Date ? value.getTime() : new Date(String(value)).getTime();
+    return !Number.isNaN(et) && !Number.isNaN(vt) && et === vt;
+  }
   return value === expected;
 }
 
@@ -318,6 +333,70 @@ function compileWhere(where: Where | undefined): Compiled {
 
 /* ─── queries ────────────────────────────────────────────────────────────── */
 
+/* ─── local fallback (no Firebase service account configured) ────────────
+   Every operation below is served by the zero-dependency file-backed store
+   (local-store.ts) instead of Firestore, keeping the deployment fully
+   functional without credentials. Semantics mirror the Firestore path:
+   in-memory filtering via the same compiled row predicates, order/limit
+   applied after filtering, Dates revived from ISO strings on read. */
+
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+
+function reviveLocal(value: unknown): unknown {
+  if (typeof value === "string" && ISO_RE.test(value)) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(reviveLocal);
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = reviveLocal(v);
+    return out;
+  }
+  return value;
+}
+
+/** Dates cannot survive JSON round-trips as Date instances — they serialize
+    to ISO strings, which reviveLocal turns back into Dates on read. */
+function toStorable(data: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(data));
+}
+
+function toComparable(value: unknown): number | string | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "string") return value;
+  return null;
+}
+
+function compareRows(a: DbRow, b: DbRow, order: Array<[string, "asc" | "desc"]>): number {
+  for (const [field, dir] of order) {
+    const av = toComparable(a[field]);
+    const bv = toComparable(b[field]);
+    if (av === null && bv === null) continue;
+    if (av === null) return 1; // missing values sort last
+    if (bv === null) return -1;
+    const c =
+      typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv));
+    if (c !== 0) return dir === "desc" ? -c : c;
+  }
+  return 0;
+}
+
+async function localQuery(model: string, options: QueryOptions = {}): Promise<DbRow[]> {
+  const compiled = compileWhere(options.where);
+  const order = normalizeOrder(options.orderBy);
+  let rows = (await localAll(tableFor(model))).map((r) => reviveLocal(r) as DbRow);
+  rows = rows.filter(compiled.rowPredicate);
+  rows.sort((a, b) => compareRows(a, b, order));
+  if (typeof options.take === "number") rows = rows.slice(0, options.take);
+  return rows;
+}
+
 function applyConstraints(query: Query, compiled: Compiled): Query {
   let q = query;
   for (const c of compiled.constraints) q = q.where(c.field, c.op, c.value);
@@ -338,6 +417,7 @@ function normalizeOrder(orderBy: QueryOptions["orderBy"]): Array<[string, "asc" 
 }
 
 async function queryDocs(model: string, options: QueryOptions = {}): Promise<DbRow[]> {
+  if (!firebaseConfigured()) return localQuery(model, options);
   const compiled = compileWhere(options.where);
   const orderBy = normalizeOrder(options.orderBy);
 
@@ -359,6 +439,9 @@ async function queryDocs(model: string, options: QueryOptions = {}): Promise<DbR
 }
 
 async function countRows(model: string, options: QueryOptions = {}): Promise<number> {
+  if (!firebaseConfigured()) {
+    return (await localQuery(model, { where: options.where })).length;
+  }
   const compiled = compileWhere(options.where);
   if (compiled.complete) {
     const q = applyConstraints(getDb().collection(tableFor(model)), compiled);
@@ -467,7 +550,11 @@ async function create(model: string, data: Record<string, unknown>): Promise<DbR
      instead of silently overwriting the existing row — matches the old
      Postgres INSERT / primary-key semantics. Callers that need
      create-or-replace must use upsert() instead. */
-  await getDb().collection(tableFor(model)).doc(String(normalized.id)).create(cleanData(normalized));
+  if (!firebaseConfigured()) {
+    await localCreate(tableFor(model), toStorable(normalized));
+  } else {
+    await getDb().collection(tableFor(model)).doc(String(normalized.id)).create(cleanData(normalized));
+  }
   return normalized;
 }
 
@@ -477,14 +564,22 @@ async function update(model: string, where: Where, data: Record<string, unknown>
   const rows = await queryDocs(model, { where, take: 1 });
   if (!rows.length) return undefined;
   const target = rows[0];
-  await getDb().collection(tableFor(model)).doc(String(target.id)).update(cleanData(nextData));
+  if (!firebaseConfigured()) {
+    await localMerge(tableFor(model), String(target.id), toStorable(cleanData(nextData)));
+  } else {
+    await getDb().collection(tableFor(model)).doc(String(target.id)).update(cleanData(nextData));
+  }
   return { ...target, ...cleanData(nextData) };
 }
 
 async function remove(model: string, where: Where): Promise<DbRow | undefined> {
   const rows = await queryDocs(model, { where, take: 1 });
   if (!rows.length) return undefined;
-  await getDb().collection(tableFor(model)).doc(String(rows[0].id)).delete();
+  if (!firebaseConfigured()) {
+    await localDelete(tableFor(model), String(rows[0].id));
+  } else {
+    await getDb().collection(tableFor(model)).doc(String(rows[0].id)).delete();
+  }
   return rows[0];
 }
 
@@ -514,12 +609,16 @@ function modelApi(model: string) {
     create: (options: { data: Record<string, unknown> }) => call("create", () => create(model, options.data)),
     createMany: (options: { data: Record<string, unknown>[] }) =>
       call("createMany", async () => {
-        const collection = getDb().collection(tableFor(model));
         let inserted = 0;
         for (const data of options.data) {
           try {
             const normalized = normalizeData(model, data);
-            if (normalized.id && (await collection.doc(String(normalized.id)).get()).exists) continue;
+            if (firebaseConfigured()) {
+              const collection = getDb().collection(tableFor(model));
+              if (normalized.id && (await collection.doc(String(normalized.id)).get()).exists) continue;
+            } else {
+              if (normalized.id && (await localGet(tableFor(model), String(normalized.id)))) continue;
+            }
             await create(model, normalized);
             inserted++;
           } catch {
@@ -535,9 +634,15 @@ function modelApi(model: string) {
         const nextData = { ...options.data };
         if (updatedAtModels.has(model) && !nextData.updatedAt) nextData.updatedAt = new Date();
         const rows = await queryDocs(model, { where: options.where });
-        const collection = getDb().collection(tableFor(model));
-        for (const row of rows) {
-          await collection.doc(String(row.id)).update(cleanData(nextData)).catch(() => {});
+        if (firebaseConfigured()) {
+          const collection = getDb().collection(tableFor(model));
+          for (const row of rows) {
+            await collection.doc(String(row.id)).update(cleanData(nextData)).catch(() => {});
+          }
+        } else {
+          for (const row of rows) {
+            await localMerge(tableFor(model), String(row.id), toStorable(cleanData(nextData))).catch(() => {});
+          }
         }
         return { count: rows.length };
       }),
@@ -545,8 +650,12 @@ function modelApi(model: string) {
     deleteMany: (options?: { where?: Where }) =>
       call("deleteMany", async () => {
         const rows = await queryDocs(model, { where: options?.where ?? {} });
-        const collection = getDb().collection(tableFor(model));
-        for (const row of rows) await collection.doc(String(row.id)).delete().catch(() => {});
+        if (firebaseConfigured()) {
+          const collection = getDb().collection(tableFor(model));
+          for (const row of rows) await collection.doc(String(row.id)).delete().catch(() => {});
+        } else {
+          for (const row of rows) await localDelete(tableFor(model), String(row.id));
+        }
         return { count: rows.length };
       }),
     upsert: (options: { where: Where; update: Record<string, unknown>; create: Record<string, unknown> }) =>
@@ -609,6 +718,35 @@ function txApi(t: Transaction): TxApi {
 }
 
 function runTransaction<T>(fn: (tx: TxApi) => Promise<T>): Promise<T> {
+  if (!firebaseConfigured()) {
+    /* Local mode: document operations apply immediately to the in-memory
+       store (single-threaded, serialized write queue behind them), which is
+       atomic enough for the read-modify-write flows that use $transaction
+       (e.g. the single-use coupon claim). */
+    const tx: TxApi = {
+      getDoc: async (model, id) => {
+        const row = await localGet(tableFor(model), String(id));
+        return row
+          ? { exists: true, data: reviveLocal(row) as DbRow }
+          : { exists: false, data: null };
+      },
+      setDoc: async (model, id, data) => {
+        const normalized = normalizeData(model, { ...data, id });
+        await localSet(tableFor(model), toStorable(cleanData(normalized)));
+      },
+      createDoc: async (model, id, data) => {
+        const normalized = normalizeData(model, { ...data, id });
+        await localCreate(tableFor(model), toStorable(cleanData(normalized)));
+      },
+      updateDoc: async (model, id, data) => {
+        await localMerge(tableFor(model), String(id), toStorable(cleanData(data)));
+      },
+      deleteDoc: async (model, id) => {
+        await localDelete(tableFor(model), String(id));
+      },
+    };
+    return fn(tx);
+  }
   return getDb().runTransaction((t) => fn(txApi(t)));
 }
 

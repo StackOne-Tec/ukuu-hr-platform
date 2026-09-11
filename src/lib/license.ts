@@ -1,5 +1,6 @@
 import "server-only";
 import { db, newId } from "@/lib/db";
+import { firebaseConfigured } from "@/lib/firebase";
 import { getWebSession } from "@/lib/session";
 import { IS_ADMIN_PLATFORM } from "@/lib/platform";
 import { sendEmail, accessCodeRedeemedEmailHtml } from "@/lib/email";
@@ -35,6 +36,29 @@ export type AccessStatus = {
 
 const UNLOCKED: AccessStatus = { enforce: false, locked: false, plan: null, expiresAt: null, code: null };
 
+/** Starter access code auto-provisioned on deployments without Firebase
+    (where no admin portal exists to issue codes). Override with
+    UKUU_STARTER_ACCESS_CODE. No-op when Firestore is configured. */
+const STARTER_ACCESS_CODE = (process.env.UKUU_STARTER_ACCESS_CODE ?? "UKUU-DEMO-2026").toUpperCase();
+
+async function ensureStarterCoupon(): Promise<void> {
+  if (firebaseConfigured()) return;
+  try {
+    await db.coupon.upsert({
+      where: { code: STARTER_ACCESS_CODE },
+      update: {},
+      create: {
+        code: STARTER_ACCESS_CODE,
+        status: "Active",
+        plan: "Professional",
+        note: "Starter access code auto-provisioned on this deployment",
+      },
+    });
+  } catch {
+    // Seeding is best-effort — redemption reports its own errors.
+  }
+}
+
 export function isLicenseActive(license: { status: string; expiresAt: Date | null } | null): boolean {
   if (!license) return false;
   if (license.status !== "Active") return false;
@@ -48,6 +72,7 @@ export async function getAccessStatus(): Promise<AccessStatus> {
   try {
     const session = await getWebSession();
     if (!session?.organizationId) return UNLOCKED;
+    await ensureStarterCoupon();
     const license = await db.licenseCode.findFirst({ where: { organizationId: session.organizationId } });
     const active = isLicenseActive(license);
     return {
@@ -80,6 +105,7 @@ export async function redeemAccessCode(rawCode: string): Promise<RedeemResult> {
   }
 
   try {
+    await ensureStarterCoupon();
     const coupon = await db.coupon.findUnique({ where: { code } });
     if (!coupon) {
       return { ok: false, error: "That access code isn't valid. Double-check it and try again." };

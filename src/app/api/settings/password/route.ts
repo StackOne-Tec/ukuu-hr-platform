@@ -3,13 +3,15 @@ import { cookies } from "next/headers";
 import { getAuth } from "firebase-admin/auth";
 import { db } from "@/lib/db";
 import { getWebSession, hashToken, requireVerifiedEmail, SESSION_COOKIE } from "@/lib/session";
-import { getFirebaseApp } from "@/lib/firebase";
+import { getFirebaseApp, firebaseConfigured, firebaseAuthConfigured } from "@/lib/firebase";
 import {
   authErrorMessage,
+  changeFirebasePasswordRest,
   FirebaseAuthError,
   signInWithPassword,
   verifyCredentials,
 } from "@/lib/firebase-auth";
+import { localCredentialUpsert, hashPassword } from "@/lib/local-store";
 import { dbErrorMessage, logDbError } from "@/lib/db-error";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +85,16 @@ export async function POST(req: Request) {
     }
 
     // Firebase stores and hashes the new password — we never see it again.
-    await getAuth(getFirebaseApp()).updateUser(uid, { password: newPassword });
+    // Admin SDK deployments: updateUser directly. Web-key-only deployments:
+    // re-sign-in with the (already proven) current password and update via
+    // the returned idToken. Locally: re-hash with scrypt.
+    if (firebaseConfigured()) {
+      await getAuth(getFirebaseApp()).updateUser(uid, { password: newPassword });
+    } else if (firebaseAuthConfigured()) {
+      await changeFirebasePasswordRest(user.email, currentPassword, newPassword);
+    } else {
+      await localCredentialUpsert(user.email, hashPassword(newPassword), uid);
+    }
 
     // Revoke every other session so a leaked session can't outlive the change.
     const store = await cookies();

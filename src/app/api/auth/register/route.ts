@@ -171,18 +171,23 @@ export async function POST(req: Request) {
       // Welcome email (fire-and-forget — never fail registration because of email).
       void sendEmail(email, "Welcome to Ukuu HR 🎉", welcomeEmailHtml(name, workspace))
       // Email verification (fire-and-forget): sensitive workspace actions are
-      // gated on a verified address, so send the link right away.
+      // gated on a verified address, so send the link right away. Web-key-only
+      // deployments get the link from the signUp idToken; an empty link means
+      // Firebase already delivered its own verification email.
       const origin = new URL(req.url).origin
-      void generateEmailVerificationLink(email, `${origin}/dashboard`)
+      void generateEmailVerificationLink(email, `${origin}/dashboard`, fbUser.idToken)
         .then((verifyUrl) =>
-          sendEmail(email, "Verify your Ukuu HR email", verifyEmailHtml(name, verifyUrl))
+          verifyUrl
+            ? sendEmail(email, "Verify your Ukuu HR email", verifyEmailHtml(name, verifyUrl))
+            : undefined
         )
         .catch((e) => logDbError(e, "auth.register.verifyEmail"))
       return res
     } catch (e) {
       // Roll back the Firebase user so a half-created registration leaves no
-      // orphan identity behind.
-      await deleteFirebaseUser(fbUser.uid).catch(() => {})
+      // orphan identity behind (the signUp idToken authorizes the delete on
+      // web-key-only deployments).
+      await deleteFirebaseUser(fbUser.uid, fbUser.idToken).catch(() => {})
       throw e
     }
   } catch (e) {
